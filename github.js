@@ -94,6 +94,15 @@
         });
       };
 
+      // List user's watched repositories
+      // -------
+
+      this.userWatched = function(username, cb) {
+        _request("GET", "/users/"+username+"/watched?type=all&per_page=1000&sort=updated", null, function(err, res) {
+          cb(err, res);
+        });
+      };
+
       // List a user's gists
       // -------
 
