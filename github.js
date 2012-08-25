@@ -410,6 +410,22 @@
       };
     };
 
+    // Search API
+    // =========
+
+    Github.Search = function() {
+      // Search repositories
+      // ---------
+      this.searchRepos = function(keyword, cb, language) {
+        // FIXME: Add language parameter
+        var params = "type=all&per_page=1000&sort=updated&direction=desc";
+        if (language) { params += "&language="+language };
+        _request("GET", "/legacy/repos/search/"+keyword+"?"+params, null, function(err, res) {
+          cb(err, res);
+        });
+      };
+    };
+
     // Gists API
     // =======
 
@@ -469,6 +485,10 @@
 
     this.getGist = function(id) {
       return new Github.Gist({id: id});
+    };
+
+    this.getSearch = function() {
+      return new Github.Search();
     };
   };
 }).call(this);
