@@ -187,11 +187,10 @@
           return _cachedETags;
         };
         this.setCache = setCache = function(cachedETags) {
-          if (cachedETags !== null && typeof value === 'object') {
-            _cachedETags = cachedETags;
-            return true;
+          if (!(cachedETags !== null && typeof value === 'object')) {
+            throw new Error('BUG: argument of method "setCache" should be an object');
           } else {
-            return false;
+            return _cachedETags = cachedETags;
           }
         };
         this.onRateLimitChanged = function(listener) {

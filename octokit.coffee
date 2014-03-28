@@ -206,14 +206,12 @@ makeOctokit = (_, jQuery, base64encode, userAgent) =>
       ## Set the local cache
       # -------
       @setCache = setCache = (cachedETags) ->
-        # return true if argument is valid.
-        if cachedETags != null and typeof value == 'object'
-          _cachedETags = cachedETags
-          return true
+        # check if argument is valid.
+        unless cachedETags != null and typeof value == 'object'
+          throw new Error 'BUG: argument of method "setCache" should be an object'
 
-        # return false if argument is invalid.
         else
-          return false
+          _cachedETags = cachedETags
 
       # Add a listener that fires when the `rateLimitRemaining` changes as a result of
       # communicating with github.
