@@ -207,7 +207,7 @@ makeOctokit = (_, jQuery, base64encode, userAgent) =>
       # -------
       @setCache = setCache = (cachedETags) ->
         # check if argument is valid.
-        unless cachedETags != null and typeof value == 'object'
+        unless cachedETags != null and typeof cachedETags == 'object'
           throw new Error 'BUG: argument of method "setCache" should be an object'
 
         else

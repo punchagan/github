@@ -187,7 +187,7 @@
           return _cachedETags;
         };
         this.setCache = setCache = function(cachedETags) {
-          if (!(cachedETags !== null && typeof value === 'object')) {
+          if (!(cachedETags !== null && typeof cachedETags === 'object')) {
             throw new Error('BUG: argument of method "setCache" should be an object');
           } else {
             return _cachedETags = cachedETags;
