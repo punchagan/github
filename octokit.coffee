@@ -1414,16 +1414,14 @@ if exports?
 
 # If requirejs is detected then define this module
 else if @define?
-  # Define both 'github' and 'octokit' for transition
-  for moduleName in ['github', 'octokit']
-    # If the browser has the native Base64 encode function `btoa` use it.
-    # Otherwise, try to use the javascript Base64 code.
-    if @btoa
-      @define moduleName, ['jquery'], (jQuery) ->
-        return makeOctokit(jQuery, @btoa)
-    else
-      @define moduleName, ['jquery', 'base64'], (jQuery, Base64) ->
-        return makeOctokit(jQuery, Base64.encode)
+  # If the browser has the native Base64 encode function `btoa` use it.
+  # Otherwise, try to use the javascript Base64 code.
+  if @btoa
+    @define ['jquery'], (jQuery) ->
+      return makeOctokit(jQuery, @btoa)
+  else
+    @define ['jquery', 'base64'], (jQuery, Base64) ->
+      return makeOctokit(jQuery, Base64.encode)
 
 # If a global jQuery is loaded, use it
 else if @jQuery and (@btoa or @Base64)
