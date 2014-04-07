@@ -282,7 +282,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
           itIsOk(USER, 'getFollowers')
           itIsOk(USER, 'getFollowing')
           #(USER, 'isFollowing')
-          itIsOk(USER, 'getPublicKeys')
+          # itIsOk(USER, 'getPublicKeys')
           # itIsOk(USER, 'getReceivedEvents')
           # itIsOk(USER, 'getEvents')
 
