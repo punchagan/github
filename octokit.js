@@ -1,5 +1,5 @@
 (function() {
-  var Octokit, encode, err, jQuery, makeOctokit, moduleName, najax, underscore, _i, _len, _ref,
+  var Octokit, encode, err, jQuery, makeOctokit, najax, underscore,
     _this = this,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
@@ -1295,18 +1295,14 @@
       return new Octokit(options);
     };
   } else if (this.define != null) {
-    _ref = ['github', 'octokit'];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      moduleName = _ref[_i];
-      if (this.btoa) {
-        this.define(moduleName, ['jquery'], function(jQuery) {
-          return makeOctokit(jQuery, this.btoa);
-        });
-      } else {
-        this.define(moduleName, ['jquery', 'base64'], function(jQuery, Base64) {
-          return makeOctokit(jQuery, Base64.encode);
-        });
-      }
+    if (this.btoa) {
+      this.define(['jquery'], function(jQuery) {
+        return makeOctokit(jQuery, this.btoa);
+      });
+    } else {
+      this.define(['jquery', 'base64'], function(jQuery, Base64) {
+        return makeOctokit(jQuery, Base64.encode);
+      });
     }
   } else if (this.jQuery && (this.btoa || this.Base64)) {
     encode = this.btoa || this.Base64.encode;
