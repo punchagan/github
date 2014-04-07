@@ -106,7 +106,7 @@
     var Octokit;
     Octokit = (function() {
       function Octokit(clientOptions) {
-        var AuthenticatedUser, Branch, ETagResponse, Gist, GitRepo, Organization, Repository, Team, User, clearCache, notifyEnd, notifyStart, toQueryString, _cachedETags, _client, _listeners, _request;
+        var AuthenticatedUser, Branch, ETagResponse, Gist, GitRepo, Organization, Repository, Team, User, clearCache, getCache, notifyEnd, notifyStart, setCache, toQueryString, _cachedETags, _client, _listeners, _request;
         if (clientOptions == null) {
           clientOptions = {};
         }
@@ -118,11 +118,10 @@
         _client = this;
         _listeners = [];
         ETagResponse = (function() {
-          function ETagResponse(eTag, data, textStatus, jqXHR) {
+          function ETagResponse(eTag, data, textStatus) {
             this.eTag = eTag;
             this.data = data;
             this.textStatus = textStatus;
-            this.jqXHR = jqXHR;
           }
 
           return ETagResponse;
@@ -218,7 +217,7 @@
             if (304 === jqXHR.status) {
               if (clientOptions.useETags && _cachedETags[path]) {
                 eTagResponse = _cachedETags[path];
-                return promise.resolve(eTagResponse.data, eTagResponse.textStatus, eTagResponse.jqXHR);
+                return promise.resolve(eTagResponse.data, eTagResponse.textStatus, jqXHR);
               } else {
                 return promise.resolve(jqXHR.responseText, textStatus, jqXHR);
               }
@@ -234,7 +233,7 @@
               }
               if ('GET' === method && jqXHR.getResponseHeader('ETag') && clientOptions.useETags) {
                 eTag = jqXHR.getResponseHeader('ETag');
-                _cachedETags[path] = new ETagResponse(eTag, data, textStatus, jqXHR);
+                _cachedETags[path] = new ETagResponse(eTag, data, textStatus);
               }
               return promise.resolve(data, textStatus, jqXHR);
             }
@@ -281,6 +280,16 @@
         };
         this.clearCache = clearCache = function() {
           return _cachedETags = {};
+        };
+        this.getCache = getCache = function() {
+          return _cachedETags;
+        };
+        this.setCache = setCache = function(cachedETags) {
+          if (!(cachedETags !== null && typeof cachedETags === 'object')) {
+            throw new Error('BUG: argument of method "setCache" should be an object');
+          } else {
+            return _cachedETags = cachedETags;
+          }
         };
         this.onRateLimitChanged = function(listener) {
           return _listeners.push(listener);

@@ -95,7 +95,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
 
       # To support ETag caching cache the responses.
       class ETagResponse
-        constructor: (@eTag, @data, @textStatus, @jqXHR) ->
+        constructor: (@eTag, @data, @textStatus) ->
 
       # Cached responses are stored in this object keyed by `path`
       _cachedETags = {}
@@ -190,7 +190,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             if clientOptions.useETags and _cachedETags[path]
               eTagResponse = _cachedETags[path]
 
-              promise.resolve(eTagResponse.data, eTagResponse.textStatus, eTagResponse.jqXHR)
+              promise.resolve(eTagResponse.data, eTagResponse.textStatus, jqXHR)
             else
               promise.resolve(jqXHR.responseText, textStatus, jqXHR)
 
@@ -214,7 +214,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             # Cache the response to reuse later
             if 'GET' == method and jqXHR.getResponseHeader('ETag') and clientOptions.useETags
               eTag = jqXHR.getResponseHeader('ETag')
-              _cachedETags[path] = new ETagResponse(eTag, data, textStatus, jqXHR)
+              _cachedETags[path] = new ETagResponse(eTag, data, textStatus)
 
             promise.resolve(data, textStatus, jqXHR)
 
@@ -257,6 +257,20 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
       # Clear the local cache
       # -------
       @clearCache = clearCache = () -> _cachedETags = {}
+
+      ## Get the local cache
+      # -------
+      @getCache = getCache = () -> _cachedETags
+
+      ## Set the local cache
+      # -------
+      @setCache = setCache = (cachedETags) ->
+        # check if argument is valid.
+        unless cachedETags != null and typeof cachedETags == 'object'
+          throw new Error 'BUG: argument of method "setCache" should be an object'
+
+        else
+          _cachedETags = cachedETags
 
       # Add a listener that fires when the `rateLimitRemaining` changes as a result of
       # communicating with github.
