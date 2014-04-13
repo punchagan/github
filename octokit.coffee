@@ -1,8 +1,7 @@
 # Github Promise API
 # ======
 #
-# This class provides a Promise API for accessing GitHub
-# (see [jQuery.Deferred](http://api.jquery.com/jQuery.deferred)).
+# This class provides a Promise API for accessing GitHub.
 # Most methods return a Promise object whose value is resolved when `.then(doneFn, failFn)`
 # is called.
 #
@@ -72,12 +71,40 @@ _.extend = (object, template) ->
 _.toArray = (object) ->
   return Array.prototype.slice.call(object)
 
+
+
 # Generate a Github class
 # =========
 #
 # Depending on how this is loaded (nodejs, requirejs, globals)
 # the actual underscore, jQuery.ajax/Deferred, and base64 encode functions may differ.
-makeOctokit = (jQuery, base64encode, userAgent) =>
+makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
+
+  # Simple jQuery.ajax() shim that returns a promise for a xhr object
+  ajax = (options) ->
+    return new Promise (resolve, reject) ->
+
+      xhr = new XMLHttpRequest()
+      xhr.dataType = options.dataType
+      xhr.overrideMimeType?(options.mimeType)
+      xhr.open(options.type, options.url)
+
+      if options.data and 'GET' != options.type
+        xhr.setRequestHeader('Content-Type', options.contentType)
+
+      for name, value of options.headers
+        xhr.setRequestHeader(name, value)
+
+      xhr.onreadystatechange = () ->
+        if 4 == xhr.readyState
+          options.statusCode?[xhr.status]?()
+
+          if xhr.status >= 200 and xhr.status < 300 or xhr.status == 304
+            resolve(xhr)
+          else
+            reject(xhr)
+      xhr.send(options.data)
+
 
   class Octokit
 
@@ -95,14 +122,14 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
 
       # To support ETag caching cache the responses.
       class ETagResponse
-        constructor: (@eTag, @data, @textStatus) ->
+        constructor: (@eTag, @data, @status) ->
 
       # Cached responses are stored in this object keyed by `path`
       _cachedETags = {}
 
       # Send simple progress notifications
-      notifyStart = (promise, path) -> promise.notify {type:'start', path:path}
-      notifyEnd   = (promise, path) -> promise.notify {type:'end',   path:path}
+      notifyStart = (promise, path) -> promise.notify? {type:'start', path:path}
+      notifyEnd   = (promise, path) -> promise.notify? {type:'end',   path:path}
 
       # HTTP Request Abstraction
       # =======
@@ -145,101 +172,109 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           headers['Authorization'] = auth
 
 
-        promise = new jQuery.Deferred()
+        promise = new Promise (resolve, reject) ->
 
-        ajaxConfig =
-          # Be sure to **not** blow the cache with a random number
-          # (GitHub will respond with 5xx or CORS errors)
-          url: clientOptions.rootURL + path
-          type: method
-          contentType: 'application/json'
-          mimeType: mimeType
-          headers: headers
+          ajaxConfig =
+            # Be sure to **not** blow the cache with a random number
+            # (GitHub will respond with 5xx or CORS errors)
+            url: clientOptions.rootURL + path
+            type: method
+            contentType: 'application/json'
+            mimeType: mimeType
+            headers: headers
 
-          processData: false # Don't convert to QueryString
-          data: !options.raw and data and JSON.stringify(data) or data
-          dataType: 'json' unless options.raw
+            processData: false # Don't convert to QueryString
+            data: !options.raw and data and JSON.stringify(data) or data
+            dataType: 'json' unless options.raw
 
-        # If the request is a boolean yes/no question GitHub will indicate
-        # via the HTTP Status of 204 (No Content) or 404 instead of a 200.
-        # Also, jQuery will never call `xhr.resolve` so we need to use a
-        # different promise later on.
-        if options.isBoolean
-          ajaxConfig.statusCode =
-            # a Boolean 'yes'
-            204: () => notifyEnd(promise, path); promise.resolve(true)
-            # a Boolean 'no'
-            404: () => notifyEnd(promise, path); promise.resolve(false)
+          # If the request is a boolean yes/no question GitHub will indicate
+          # via the HTTP Status of 204 (No Content) or 404 instead of a 200.
+          if options.isBoolean
+            ajaxConfig.statusCode =
+              # a Boolean 'yes'
+              204: () => resolve(true)
+              # a Boolean 'no'
+              404: () => resolve(false)
 
-        jqXHR = jQuery.ajax(ajaxConfig)
+          xhrPromise = ajax(ajaxConfig)
 
-        jqXHR.always =>
-          notifyEnd(promise, path)
-          # Fire listeners when the request completes or fails
-          rateLimit = parseFloat(jqXHR.getResponseHeader 'X-RateLimit-Limit')
-          rateLimitRemaining = parseFloat(jqXHR.getResponseHeader 'X-RateLimit-Remaining')
+          always = (jqXHR) =>
+            notifyEnd(@, path)
+            # Fire listeners when the request completes or fails
+            rateLimit = parseFloat(jqXHR.getResponseHeader 'X-RateLimit-Limit')
+            rateLimitRemaining = parseFloat(jqXHR.getResponseHeader 'X-RateLimit-Remaining')
 
-          for listener in _listeners
-            listener(rateLimitRemaining, rateLimit, method, path, data, options)
+            for listener in _listeners
+              listener(rateLimitRemaining, rateLimit, method, path, data, options)
 
 
-        # Return the result and Base64 encode it if `options.isBase64` flag is set.
-        jqXHR.done (data, textStatus) ->
-          # If the response was a 304 then return the cached version
-          if 304 == jqXHR.status
-            if clientOptions.useETags and _cachedETags[path]
-              eTagResponse = _cachedETags[path]
+          # Return the result and Base64 encode it if `options.isBase64` flag is set.
+          xhrPromise.then (jqXHR) ->
+            always(jqXHR)
 
-              promise.resolve(eTagResponse.data, eTagResponse.textStatus, jqXHR)
-            else
-              promise.resolve(jqXHR.responseText, textStatus, jqXHR)
+            # If the response was a 304 then return the cached version
+            if 304 == jqXHR.status
+              if clientOptions.useETags and _cachedETags[path]
+                eTagResponse = _cachedETags[path]
 
-          # If it was a boolean question and the server responded with 204
-          # return true.
-          else if 204 == jqXHR.status and options.isBoolean
-            promise.resolve(true, textStatus, jqXHR)
-
-          else
-
-            # Convert the response to a Base64 encoded string
-            if 'GET' == method and options.isBase64
-              # Convert raw data to binary chopping off the higher-order bytes in each char.
-              # Useful for Base64 encoding.
-              converted = ''
-              for i in [0..data.length]
-                converted += String.fromCharCode(data.charCodeAt(i) & 0xff)
-
-              data = converted
-
-            # Cache the response to reuse later
-            if 'GET' == method and jqXHR.getResponseHeader('ETag') and clientOptions.useETags
-              eTag = jqXHR.getResponseHeader('ETag')
-              _cachedETags[path] = new ETagResponse(eTag, data, textStatus)
-
-            promise.resolve(data, textStatus, jqXHR)
-
-        # Parse the error if one occurs
-        .fail (unused, msg, desc) ->
-          # If the request was for a Boolean then a 404 should be treated as a "false"
-          if options.isBoolean and 404 == jqXHR.status
-            promise.resolve(false)
-
-          else
-
-            if jqXHR.getResponseHeader('Content-Type') != 'application/json; charset=utf-8'
-              promise.reject {error: jqXHR.responseText, status: jqXHR.status, _jqXHR: jqXHR}
-
-            else
-              if jqXHR.responseText
-                json = JSON.parse jqXHR.responseText
+                resolve(eTagResponse.data, eTagResponse.status, jqXHR)
               else
-                # In the case of 404 errors, `responseText` is an empty string
-                json = ''
-              promise.reject {error: json, status: jqXHR.status, _jqXHR: jqXHR}
+                resolve(jqXHR.responseText, status, jqXHR)
+
+            # If it was a boolean question and the server responded with 204
+            # return true.
+            else if 204 == jqXHR.status and options.isBoolean
+              resolve(true, status, jqXHR)
+
+            else
+
+
+              if jqXHR.responseText and 'json' == ajaxConfig.dataType
+                data = JSON.parse(jqXHR.responseText)
+              else
+                data = jqXHR.responseText or firstArg # najax does not tack the responseText onto jqXHR
+
+              # Convert the response to a Base64 encoded string
+              if 'GET' == method and options.isBase64
+                # Convert raw data to binary chopping off the higher-order bytes in each char.
+                # Useful for Base64 encoding.
+                converted = ''
+                for i in [0..data.length]
+                  converted += String.fromCharCode(data.charCodeAt(i) & 0xff)
+
+                data = converted
+
+              # Cache the response to reuse later
+              if 'GET' == method and jqXHR.getResponseHeader('ETag') and clientOptions.useETags
+                eTag = jqXHR.getResponseHeader('ETag')
+                _cachedETags[path] = new ETagResponse(eTag, data, jqXHR.status)
+
+              resolve(data, jqXHR.status, jqXHR)
+
+          # Parse the error if one occurs
+          .catch (jqXHR) ->
+            always(jqXHR)
+
+            # If the request was for a Boolean then a 404 should be treated as a "false"
+            if options.isBoolean and 404 == jqXHR.status
+              resolve(false)
+
+            else
+
+              if jqXHR.getResponseHeader('Content-Type') != 'application/json; charset=utf-8'
+                reject {error: jqXHR.responseText, status: jqXHR.status, _jqXHR: jqXHR}
+
+              else
+                if jqXHR.responseText
+                  json = JSON.parse(jqXHR.responseText)
+                else
+                  # In the case of 404 errors, `responseText` is an empty string
+                  json = ''
+                reject {error: json, status: jqXHR.status, _jqXHR: jqXHR}
 
         notifyStart(promise, path)
         # Return the promise
-        return promise.promise()
+        return promise
 
 
       # Converts a dictionary to a query string.
@@ -353,13 +388,11 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _cachedInfo = null if force
 
             if _cachedInfo
-              promise = new jQuery.Deferred()
-              promise.resolve(_cachedInfo)
-              return promise
+              return Promise.resolve(_cachedInfo)
 
             _request('GET', "#{_rootPath}", null)
             # Squirrel away the user info
-            .done (info) -> _cachedInfo = info
+            .then (info) -> _cachedInfo = info
 
           # List user repositories
           # -------
@@ -606,8 +639,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           # -------
           @_updateTree = (branch) ->
             @getRef("heads/#{branch}")
-            # Return the promise
-            .promise()
 
 
           # Get a particular reference
@@ -616,8 +647,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _request('GET', "#{_repoPath}/git/refs/#{ref}", null)
             .then (res) =>
               return res.object.sha
-            # Return the promise
-            .promise()
 
 
           # Create a new reference
@@ -648,8 +677,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
               return _.map(heads, (head) ->
                 _.last head.ref.split("/")
               )
-            # Return the promise
-            .promise()
 
 
           # Retrieve the contents of a blob
@@ -672,10 +699,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
               return file?.sha if file?.sha
 
               # Return a promise that has failed if no sha was found
-              return (new jQuery.Deferred()).reject {message: 'SHA_NOT_FOUND'}
-
-            # Return the promise
-            .promise()
+              return Promise.reject {message: 'SHA_NOT_FOUND'}
 
 
           # Get contents (file/dir)
@@ -687,8 +711,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _request('GET', "#{_repoPath}/contents/#{path}#{queryString}", null, {raw:true})
             .then (contents) =>
               return contents
-            # Return the promise
-            .promise()
 
 
           # Remove a file from the tree
@@ -709,8 +731,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _request('GET', "#{_repoPath}/git/trees/#{tree}#{queryString}", null)
             .then (res) =>
               return res.tree
-            # Return the promise
-            .promise()
 
 
           # Post a new blob object, getting a blob SHA back
@@ -729,8 +749,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _request('POST', "#{_repoPath}/git/blobs", content)
             .then (res) =>
               return res.sha
-            # Return the promise
-            .promise()
 
 
           # Update an existing tree adding a new blob object getting a tree SHA back
@@ -751,8 +769,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _request('POST', "#{_repoPath}/git/trees", data)
             .then (res) =>
               return res.sha
-            # Return the promise
-            .promise()
 
 
           # Post a new tree object having a file path pointer replaced
@@ -762,8 +778,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _request('POST', "#{_repoPath}/git/trees", {tree: tree})
             .then (res) =>
               return res.sha
-            # Return the promise
-            .promise()
 
 
           # Create a new commit object with the current commit SHA as the parent
@@ -778,8 +792,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
 
             _request('POST', "#{_repoPath}/git/commits", data)
             .then((commit) -> return commit.sha)
-            # Return the promise
-            .promise()
 
 
           # Update the reference of your head to point to the new commit SHA
@@ -818,8 +830,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             queryString = toQueryString(options)
 
             _request('GET', "#{_repoPath}/commits#{queryString}", null)
-            # Return the promise
-            .promise()
 
 
       # Branch Class
@@ -852,8 +862,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
               options.sha = branch
               _git.getCommits(options)
 
-            # Return the promise
-            .promise()
 
 
           # Creates a new branch based on the current reference of this branch
@@ -865,8 +873,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
               .then (sha) =>
                 _git.createRef({sha:sha, ref:"refs/heads/#{newBranchName}"})
 
-            # Return the promise
-            .promise()
 
 
           # Read file at given path
@@ -881,8 +887,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
                 # Return both the commit hash and the content
                 .then (bytes) =>
                   return {sha:sha, content:bytes}
-            # Return the promise
-            .promise()
 
 
           # Get contents at given path
@@ -895,8 +899,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
                 _git.getContents(path, sha)
                 .then (contents) =>
                   return contents
-            # Return the promise
-            .promise()
 
 
           # Remove a file from the tree
@@ -913,8 +915,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
                 .then (sha) =>
                   _git.removeFile(path, message, sha, branch)
 
-            # Return the promise
-            .promise()
 
 
           # Move a file to a new location
@@ -937,8 +937,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
                       _git.updateHead(branch, commit)
                       .then (res) =>
                         return res # Finally, return the result
-            # Return the promise
-            .promise()
 
 
           # Write file contents to a given branch and path
@@ -954,8 +952,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
               isBase64: isBase64
 
             @writeMany(contents, message, parentCommitSha)
-            # Return the promise
-            .promise()
 
 
           # Write the contents of multiple files to a given branch
@@ -999,9 +995,8 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
                       sha: blob
                     }
                 # 3. Wait on all the new blobs to finish
-                jQuery.when.apply(jQuery, promises)
-                .then (newTree1, newTree2, newTreeN) =>
-                  newTrees = _.toArray(arguments) # Convert args from jQuery.when back to an array. kludgy
+                Promise.all(promises)
+                .then (newTrees) =>
                   _git.updateTreeMany(parentCommitShas, newTrees)
                   .then (tree) => # 4. Commit and update the branch
                     _git.commit(parentCommitShas, tree, message)
@@ -1016,8 +1011,6 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
               else
                 return _git._updateTree(branch).then(afterParentCommitShas)
 
-            # Return the promise
-            .promise()
 
 
       # Repository Class
@@ -1053,9 +1046,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           @getBranch = (branchName=null) ->
             if branchName
               getRef = () =>
-                deferred = new jQuery.Deferred()
-                deferred.resolve(branchName)
-                deferred
+                return Promise.resolve(branchName)
               return new Branch(@git, getRef)
             else
               return @getDefaultBranch()
@@ -1180,7 +1171,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           @canCollaborate = () ->
             # Short-circuit if no credentials provided
             if not (clientOptions.password or clientOptions.token)
-              return (new jQuery.Deferred()).resolve(false)
+              return Promise.resolve(false)
 
             _client.getLogin()
             .then (login) =>
@@ -1387,9 +1378,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           .then (info) ->
             return info.login
         else
-          ret = new jQuery.Deferred()
-          ret.resolve(null)
-          return ret
+          return Promise.resolve(null)
 
 
 
@@ -1400,35 +1389,33 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
 # -------
 # Depending on the context this file is called, register it appropriately
 
-# If using this as a nodejs module use `jquery-deferred` and `najax` to make a jQuery object
 if exports?
-  jQuery = require 'jquery-deferred'
-  najax = require 'najax'
-  jQuery.ajax = najax
+  Promise         = require('es6-promise').Promise
+  XMLHttpRequest  = require 'xmlhttprequest'
   # Encode using native Base64
   encode = (str) ->
     buffer = new Buffer(str, 'binary')
     return buffer.toString('base64')
-  Octokit = makeOctokit(jQuery, encode, 'octokit') # `User-Agent` (for nodejs)
+  Octokit = makeOctokit(Promise, XMLHttpRequest, encode, 'octokit') # `User-Agent` (for nodejs)
   exports.new = (options) -> new Octokit(options)
 
 # If requirejs is detected then define this module
-else if @define?
+else if @Promise and @define?
   # If the browser has the native Base64 encode function `btoa` use it.
   # Otherwise, try to use the javascript Base64 code.
   if @btoa
-    @define ['jquery'], (jQuery) ->
-      return makeOctokit(jQuery, @btoa)
+    @define 'octokit', [], () ->
+      return makeOctokit(@Promise, @XMLHttpRequest, @btoa)
   else
-    @define ['jquery', 'base64'], (jQuery, Base64) ->
-      return makeOctokit(jQuery, Base64.encode)
+    @define 'octokit', ['base64'], (Base64) ->
+      return makeOctokit(@Promise, @XMLHttpRequest, Base64.encode)
 
 # If a global jQuery is loaded, use it
-else if @jQuery and (@btoa or @Base64)
+else if @Promise and (@btoa or @Base64)
   # Use the `btoa` function if it is defined (Webkit/Mozilla) and fail back to
   # `Base64.encode` otherwise (IE)
   encode = @btoa or @Base64.encode
-  Octokit = makeOctokit(@jQuery, encode)
+  Octokit = makeOctokit(@Promise, @XMLHttpRequest, encode)
   # Assign to a global `Octokit`
   @Octokit = Octokit
   @Github = Octokit
@@ -1439,5 +1426,5 @@ else
     console?.error?(msg)
     throw new Error(msg)
 
-  err 'jQuery not included' if not @jQuery
+  err 'Promise must be available. Please include a Polyfill for it first. Like https://github.com/jakearchibald/es6-promise' if not @Promise
   err 'Base64 not included' if not (@btoa or @Base64)

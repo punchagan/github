@@ -25,8 +25,6 @@ This package can also be used in `nodejs` or as an AMD module in the browser.
 ## Usage
 
 All asynchronous methods return a [Common-JS Promise](http://wiki.commonjs.org/wiki/Promises/A).
-See [jQuery.Deferred](http://api.jquery.com/category/deferred-object/) or
-[Node's Q](https://github.com/kriskowal/q) for more information.
 
 ### In a browser without requirejs
 
@@ -504,8 +502,6 @@ gh.getOrgRepos(orgname)
 
 For multistep operations users can listen to updates by registering a listener at `promise.progress(function(obj) {})`.
 
-For more details see jQuery's [deferred.progress documentation](http://api.jquery.com/deferred.progress/).
-
 
 
 ## Setup
@@ -514,7 +510,6 @@ For more details see jQuery's [deferred.progress documentation](http://api.jquer
 
 - Underscore
 - Base64 (optional). Only needed if you support older browsers.
-- jQuery or [zepto/ajax](https://github.com/madrobby/zepto/blob/master/src/ajax.js). This is a bit overkill and really should use `XMLHTTPRequest`
 
 If you are not using NodeJS or requireJS include these before `octokit.js`:
 

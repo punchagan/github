@@ -1,5 +1,5 @@
 (function() {
-  var Octokit, encode, err, jQuery, makeOctokit, najax, _,
+  var Octokit, Promise, XMLHttpRequest, encode, err, makeOctokit, _,
     _this = this,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
@@ -102,8 +102,43 @@
     return Array.prototype.slice.call(object);
   };
 
-  makeOctokit = function(jQuery, base64encode, userAgent) {
-    var Octokit;
+  makeOctokit = function(Promise, XMLHttpRequest, base64encode, userAgent) {
+    var Octokit, ajax;
+    ajax = function(options) {
+      return new Promise(function(resolve, reject) {
+        var name, value, xhr, _ref;
+        xhr = new XMLHttpRequest();
+        xhr.dataType = options.dataType;
+        if (typeof xhr.overrideMimeType === "function") {
+          xhr.overrideMimeType(options.mimeType);
+        }
+        xhr.open(options.type, options.url);
+        if (options.data && 'GET' !== options.type) {
+          xhr.setRequestHeader('Content-Type', options.contentType);
+        }
+        _ref = options.headers;
+        for (name in _ref) {
+          value = _ref[name];
+          xhr.setRequestHeader(name, value);
+        }
+        xhr.onreadystatechange = function() {
+          var _name, _ref1;
+          if (4 === xhr.readyState) {
+            if ((_ref1 = options.statusCode) != null) {
+              if (typeof _ref1[_name = xhr.status] === "function") {
+                _ref1[_name]();
+              }
+            }
+            if (xhr.status >= 200 && xhr.status < 300 || xhr.status === 304) {
+              return resolve(xhr);
+            } else {
+              return reject(xhr);
+            }
+          }
+        };
+        return xhr.send(options.data);
+      });
+    };
     Octokit = (function() {
       function Octokit(clientOptions) {
         var AuthenticatedUser, Branch, ETagResponse, Gist, GitRepo, Organization, Repository, Team, User, clearCache, getCache, notifyEnd, notifyStart, setCache, toQueryString, _cachedETags, _client, _listeners, _request;
@@ -118,10 +153,10 @@
         _client = this;
         _listeners = [];
         ETagResponse = (function() {
-          function ETagResponse(eTag, data, textStatus) {
+          function ETagResponse(eTag, data, status) {
             this.eTag = eTag;
             this.data = data;
-            this.textStatus = textStatus;
+            this.status = status;
           }
 
           return ETagResponse;
@@ -129,20 +164,19 @@
         })();
         _cachedETags = {};
         notifyStart = function(promise, path) {
-          return promise.notify({
+          return typeof promise.notify === "function" ? promise.notify({
             type: 'start',
             path: path
-          });
+          }) : void 0;
         };
         notifyEnd = function(promise, path) {
-          return promise.notify({
+          return typeof promise.notify === "function" ? promise.notify({
             type: 'end',
             path: path
-          });
+          }) : void 0;
         };
         _request = function(method, path, data, options) {
-          var ajaxConfig, auth, headers, jqXHR, mimeType, promise,
-            _this = this;
+          var auth, headers, mimeType, promise;
           if (options == null) {
             options = {
               raw: false,
@@ -176,94 +210,102 @@
             }
             headers['Authorization'] = auth;
           }
-          promise = new jQuery.Deferred();
-          ajaxConfig = {
-            url: clientOptions.rootURL + path,
-            type: method,
-            contentType: 'application/json',
-            mimeType: mimeType,
-            headers: headers,
-            processData: false,
-            data: !options.raw && data && JSON.stringify(data) || data,
-            dataType: !options.raw ? 'json' : void 0
-          };
-          if (options.isBoolean) {
-            ajaxConfig.statusCode = {
-              204: function() {
-                notifyEnd(promise, path);
-                return promise.resolve(true);
-              },
-              404: function() {
-                notifyEnd(promise, path);
-                return promise.resolve(false);
-              }
+          promise = new Promise(function(resolve, reject) {
+            var ajaxConfig, always, xhrPromise,
+              _this = this;
+            ajaxConfig = {
+              url: clientOptions.rootURL + path,
+              type: method,
+              contentType: 'application/json',
+              mimeType: mimeType,
+              headers: headers,
+              processData: false,
+              data: !options.raw && data && JSON.stringify(data) || data,
+              dataType: !options.raw ? 'json' : void 0
             };
-          }
-          jqXHR = jQuery.ajax(ajaxConfig);
-          jqXHR.always(function() {
-            var listener, rateLimit, rateLimitRemaining, _i, _len, _results;
-            notifyEnd(promise, path);
-            rateLimit = parseFloat(jqXHR.getResponseHeader('X-RateLimit-Limit'));
-            rateLimitRemaining = parseFloat(jqXHR.getResponseHeader('X-RateLimit-Remaining'));
-            _results = [];
-            for (_i = 0, _len = _listeners.length; _i < _len; _i++) {
-              listener = _listeners[_i];
-              _results.push(listener(rateLimitRemaining, rateLimit, method, path, data, options));
-            }
-            return _results;
-          });
-          jqXHR.done(function(data, textStatus) {
-            var converted, eTag, eTagResponse, i, _i, _ref;
-            if (304 === jqXHR.status) {
-              if (clientOptions.useETags && _cachedETags[path]) {
-                eTagResponse = _cachedETags[path];
-                return promise.resolve(eTagResponse.data, eTagResponse.textStatus, jqXHR);
-              } else {
-                return promise.resolve(jqXHR.responseText, textStatus, jqXHR);
-              }
-            } else if (204 === jqXHR.status && options.isBoolean) {
-              return promise.resolve(true, textStatus, jqXHR);
-            } else {
-              if ('GET' === method && options.isBase64) {
-                converted = '';
-                for (i = _i = 0, _ref = data.length; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
-                  converted += String.fromCharCode(data.charCodeAt(i) & 0xff);
+            if (options.isBoolean) {
+              ajaxConfig.statusCode = {
+                204: function() {
+                  return resolve(true);
+                },
+                404: function() {
+                  return resolve(false);
                 }
-                data = converted;
-              }
-              if ('GET' === method && jqXHR.getResponseHeader('ETag') && clientOptions.useETags) {
-                eTag = jqXHR.getResponseHeader('ETag');
-                _cachedETags[path] = new ETagResponse(eTag, data, textStatus);
-              }
-              return promise.resolve(data, textStatus, jqXHR);
+              };
             }
-          }).fail(function(unused, msg, desc) {
-            var json;
-            if (options.isBoolean && 404 === jqXHR.status) {
-              return promise.resolve(false);
-            } else {
-              if (jqXHR.getResponseHeader('Content-Type') !== 'application/json; charset=utf-8') {
-                return promise.reject({
-                  error: jqXHR.responseText,
-                  status: jqXHR.status,
-                  _jqXHR: jqXHR
-                });
-              } else {
-                if (jqXHR.responseText) {
-                  json = JSON.parse(jqXHR.responseText);
+            xhrPromise = ajax(ajaxConfig);
+            always = function(jqXHR) {
+              var listener, rateLimit, rateLimitRemaining, _i, _len, _results;
+              notifyEnd(_this, path);
+              rateLimit = parseFloat(jqXHR.getResponseHeader('X-RateLimit-Limit'));
+              rateLimitRemaining = parseFloat(jqXHR.getResponseHeader('X-RateLimit-Remaining'));
+              _results = [];
+              for (_i = 0, _len = _listeners.length; _i < _len; _i++) {
+                listener = _listeners[_i];
+                _results.push(listener(rateLimitRemaining, rateLimit, method, path, data, options));
+              }
+              return _results;
+            };
+            return xhrPromise.then(function(jqXHR) {
+              var converted, eTag, eTagResponse, i, _i, _ref;
+              always(jqXHR);
+              if (304 === jqXHR.status) {
+                if (clientOptions.useETags && _cachedETags[path]) {
+                  eTagResponse = _cachedETags[path];
+                  return resolve(eTagResponse.data, eTagResponse.status, jqXHR);
                 } else {
-                  json = '';
+                  return resolve(jqXHR.responseText, status, jqXHR);
                 }
-                return promise.reject({
-                  error: json,
-                  status: jqXHR.status,
-                  _jqXHR: jqXHR
-                });
+              } else if (204 === jqXHR.status && options.isBoolean) {
+                return resolve(true, status, jqXHR);
+              } else {
+                if (jqXHR.responseText && 'json' === ajaxConfig.dataType) {
+                  data = JSON.parse(jqXHR.responseText);
+                } else {
+                  data = jqXHR.responseText || firstArg;
+                }
+                if ('GET' === method && options.isBase64) {
+                  converted = '';
+                  for (i = _i = 0, _ref = data.length; 0 <= _ref ? _i <= _ref : _i >= _ref; i = 0 <= _ref ? ++_i : --_i) {
+                    converted += String.fromCharCode(data.charCodeAt(i) & 0xff);
+                  }
+                  data = converted;
+                }
+                if ('GET' === method && jqXHR.getResponseHeader('ETag') && clientOptions.useETags) {
+                  eTag = jqXHR.getResponseHeader('ETag');
+                  _cachedETags[path] = new ETagResponse(eTag, data, jqXHR.status);
+                }
+                return resolve(data, jqXHR.status, jqXHR);
               }
-            }
+            })["catch"](function(jqXHR) {
+              var json;
+              always(jqXHR);
+              if (options.isBoolean && 404 === jqXHR.status) {
+                return resolve(false);
+              } else {
+                if (jqXHR.getResponseHeader('Content-Type') !== 'application/json; charset=utf-8') {
+                  return reject({
+                    error: jqXHR.responseText,
+                    status: jqXHR.status,
+                    _jqXHR: jqXHR
+                  });
+                } else {
+                  if (jqXHR.responseText) {
+                    json = JSON.parse(jqXHR.responseText);
+                  } else {
+                    json = '';
+                  }
+                  return reject({
+                    error: json,
+                    status: jqXHR.status,
+                    _jqXHR: jqXHR
+                  });
+                }
+              }
+            });
           });
           notifyStart(promise, path);
-          return promise.promise();
+          return promise;
         };
         toQueryString = function(options) {
           var params;
@@ -368,7 +410,6 @@
             }
             _cachedInfo = null;
             this.getInfo = function(force) {
-              var promise;
               if (force == null) {
                 force = false;
               }
@@ -376,11 +417,9 @@
                 _cachedInfo = null;
               }
               if (_cachedInfo) {
-                promise = new jQuery.Deferred();
-                promise.resolve(_cachedInfo);
-                return promise;
+                return Promise.resolve(_cachedInfo);
               }
-              return _request('GET', "" + _rootPath, null).done(function(info) {
+              return _request('GET', "" + _rootPath, null).then(function(info) {
                 return _cachedInfo = info;
               });
             };
@@ -604,13 +643,13 @@
               return _request('DELETE', "" + _repoPath);
             };
             this._updateTree = function(branch) {
-              return this.getRef("heads/" + branch).promise();
+              return this.getRef("heads/" + branch);
             };
             this.getRef = function(ref) {
               var _this = this;
               return _request('GET', "" + _repoPath + "/git/refs/" + ref, null).then(function(res) {
                 return res.object.sha;
-              }).promise();
+              });
             };
             this.createRef = function(options) {
               return _request('POST', "" + _repoPath + "/git/refs", options);
@@ -624,7 +663,7 @@
                 return _.map(heads, function(head) {
                   return _.last(head.ref.split("/"));
                 });
-              }).promise();
+              });
             };
             this.getBlob = function(sha, isBase64) {
               return _request('GET', "" + _repoPath + "/git/blobs/" + sha, null, {
@@ -647,10 +686,10 @@
                 if (file != null ? file.sha : void 0) {
                   return file != null ? file.sha : void 0;
                 }
-                return (new jQuery.Deferred()).reject({
+                return Promise.reject({
                   message: 'SHA_NOT_FOUND'
                 });
-              }).promise();
+              });
             };
             this.getContents = function(path, sha) {
               var queryString,
@@ -668,7 +707,7 @@
                 raw: true
               }).then(function(contents) {
                 return contents;
-              }).promise();
+              });
             };
             this.removeFile = function(path, message, sha, branch) {
               var params;
@@ -688,7 +727,7 @@
               queryString = toQueryString(options);
               return _request('GET', "" + _repoPath + "/git/trees/" + tree + queryString, null).then(function(res) {
                 return res.tree;
-              }).promise();
+              });
             };
             this.postBlob = function(content, isBase64) {
               var _this = this;
@@ -706,7 +745,7 @@
               }
               return _request('POST', "" + _repoPath + "/git/blobs", content).then(function(res) {
                 return res.sha;
-              }).promise();
+              });
             };
             this.updateTreeMany = function(baseTree, newTree) {
               var data,
@@ -717,7 +756,7 @@
               };
               return _request('POST', "" + _repoPath + "/git/trees", data).then(function(res) {
                 return res.sha;
-              }).promise();
+              });
             };
             this.postTree = function(tree) {
               var _this = this;
@@ -725,7 +764,7 @@
                 tree: tree
               }).then(function(res) {
                 return res.sha;
-              }).promise();
+              });
             };
             this.commit = function(parents, tree, message) {
               var data;
@@ -739,7 +778,7 @@
               };
               return _request('POST', "" + _repoPath + "/git/commits", data).then(function(commit) {
                 return commit.sha;
-              }).promise();
+              });
             };
             this.updateHead = function(head, commit, force) {
               var options;
@@ -776,7 +815,7 @@
                 options.until = getDate(options.until);
               }
               queryString = toQueryString(options);
-              return _request('GET', "" + _repoPath + "/commits" + queryString, null).promise();
+              return _request('GET', "" + _repoPath + "/commits" + queryString, null);
             };
           }
 
@@ -801,7 +840,7 @@
               return _getRef().then(function(branch) {
                 options.sha = branch;
                 return _git.getCommits(options);
-              }).promise();
+              });
             };
             this.createBranch = function(newBranchName) {
               var _this = this;
@@ -812,7 +851,7 @@
                     ref: "refs/heads/" + newBranchName
                   });
                 });
-              }).promise();
+              });
             };
             this.read = function(path, isBase64) {
               var _this = this;
@@ -825,7 +864,7 @@
                     };
                   });
                 });
-              }).promise();
+              });
             };
             this.contents = function(path) {
               var _this = this;
@@ -835,7 +874,7 @@
                     return contents;
                   });
                 });
-              }).promise();
+              });
             };
             this.remove = function(path, message, sha) {
               var _this = this;
@@ -853,7 +892,7 @@
                     return _git.removeFile(path, message, sha, branch);
                   });
                 }
-              }).promise();
+              });
             };
             this.move = function(path, newPath, message) {
               var _this = this;
@@ -882,7 +921,7 @@
                     });
                   });
                 });
-              }).promise();
+              });
             };
             this.write = function(path, content, message, isBase64, parentCommitSha) {
               var contents;
@@ -897,7 +936,7 @@
                 content: content,
                 isBase64: isBase64
               };
-              return this.writeMany(contents, message, parentCommitSha).promise();
+              return this.writeMany(contents, message, parentCommitSha);
             };
             this.writeMany = function(contents, message, parentCommitShas) {
               var _this = this;
@@ -926,9 +965,7 @@
                       };
                     });
                   });
-                  return jQuery.when.apply(jQuery, promises).then(function(newTree1, newTree2, newTreeN) {
-                    var newTrees;
-                    newTrees = _.toArray(arguments);
+                  return Promise.all(promises).then(function(newTrees) {
                     return _git.updateTreeMany(parentCommitShas, newTrees).then(function(tree) {
                       return _git.commit(parentCommitShas, tree, message).then(function(commitSha) {
                         return _git.updateHead(branch, commitSha).then(function(res) {
@@ -943,7 +980,7 @@
                 } else {
                   return _git._updateTree(branch).then(afterParentCommitShas);
                 }
-              }).promise();
+              });
             };
           }
 
@@ -976,10 +1013,7 @@
               }
               if (branchName) {
                 getRef = function() {
-                  var deferred;
-                  deferred = new jQuery.Deferred();
-                  deferred.resolve(branchName);
-                  return deferred;
+                  return Promise.resolve(branchName);
                 };
                 return new Branch(this.git, getRef);
               } else {
@@ -1084,7 +1118,7 @@
             this.canCollaborate = function() {
               var _this = this;
               if (!(clientOptions.password || clientOptions.token)) {
-                return (new jQuery.Deferred()).resolve(false);
+                return Promise.resolve(false);
               }
               return _client.getLogin().then(function(login) {
                 if (!login) {
@@ -1262,15 +1296,12 @@
           });
         };
         this.getLogin = function() {
-          var ret;
           if (clientOptions.password || clientOptions.token) {
             return new User().getInfo().then(function(info) {
               return info.login;
             });
           } else {
-            ret = new jQuery.Deferred();
-            ret.resolve(null);
-            return ret;
+            return Promise.resolve(null);
           }
         };
       }
@@ -1282,31 +1313,30 @@
   };
 
   if (typeof exports !== "undefined" && exports !== null) {
-    jQuery = require('jquery-deferred');
-    najax = require('najax');
-    jQuery.ajax = najax;
+    Promise = require('es6-promise').Promise;
+    XMLHttpRequest = require('xmlhttprequest');
     encode = function(str) {
       var buffer;
       buffer = new Buffer(str, 'binary');
       return buffer.toString('base64');
     };
-    Octokit = makeOctokit(jQuery, encode, 'octokit');
+    Octokit = makeOctokit(Promise, XMLHttpRequest, encode, 'octokit');
     exports["new"] = function(options) {
       return new Octokit(options);
     };
-  } else if (this.define != null) {
+  } else if (this.Promise && (this.define != null)) {
     if (this.btoa) {
-      this.define(['jquery'], function(jQuery) {
-        return makeOctokit(jQuery, this.btoa);
+      this.define('octokit', [], function() {
+        return makeOctokit(this.Promise, this.XMLHttpRequest, this.btoa);
       });
     } else {
-      this.define(['jquery', 'base64'], function(jQuery, Base64) {
-        return makeOctokit(jQuery, Base64.encode);
+      this.define('octokit', ['base64'], function(Base64) {
+        return makeOctokit(this.Promise, this.XMLHttpRequest, Base64.encode);
       });
     }
-  } else if (this.jQuery && (this.btoa || this.Base64)) {
+  } else if (this.Promise && (this.btoa || this.Base64)) {
     encode = this.btoa || this.Base64.encode;
-    Octokit = makeOctokit(this.jQuery, encode);
+    Octokit = makeOctokit(this.Promise, this.XMLHttpRequest, encode);
     this.Octokit = Octokit;
     this.Github = Octokit;
   } else {
@@ -1318,8 +1348,8 @@
       }
       throw new Error(msg);
     };
-    if (!this.jQuery) {
-      err('jQuery not included');
+    if (!this.Promise) {
+      err('Promise must be available. Please include a Polyfill for it first. Like https://github.com/jakearchibald/es6-promise');
     }
     if (!(this.btoa || this.Base64)) {
       err('Base64 not included');
