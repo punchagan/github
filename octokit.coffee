@@ -20,36 +20,36 @@
 #
 # The following code is a shim for the underscore.js functions this code relise on
 
-underscore = {}
+_ = {}
 
-underscore.isEmpty = (object) ->
+_.isEmpty = (object) ->
   Object.keys(object).length == 0
 
-underscore.isArray = (object) ->
+_.isArray = (object) ->
   !!object.slice
 
-underscore.defaults = (object, values) ->
+_.defaults = (object, values) ->
   for key in Object.keys(values)
     do (key) ->
       object[key] ?= values[key]
 
-underscore.each = (object, fn) ->
-  if underscore.isArray(object)
+_.each = (object, fn) ->
+  if _.isArray(object)
     object.forEach(fn)
   arr = []
   for key in Object.keys(object)
     do (key) ->
       fn(object[key])
 
-underscore.pairs = (object) ->
+_.pairs = (object) ->
   arr = []
   for key in Object.keys(object)
     do (key) ->
       arr.push([key, object[key]])
   return arr
 
-underscore.map = (object, fn) ->
-  if underscore.isArray(object)
+_.map = (object, fn) ->
+  if _.isArray(object)
     return object.map(fn)
   arr = []
   for key in Object.keys(object)
@@ -57,19 +57,19 @@ underscore.map = (object, fn) ->
       arr.push(fn(object[key]))
   arr
 
-underscore.last = (object, n) ->
+_.last = (object, n) ->
   len = object.length
   object.slice(len - n, len)
 
-underscore.select = (object, fn) ->
+_.select = (object, fn) ->
   object.filter(fn)
 
-underscore.extend = (object, template) ->
+_.extend = (object, template) ->
   for key in Object.keys(template)
     do (key) ->
       object[key] = template[key]
 
-underscore.toArray = (object) ->
+_.toArray = (object) ->
   return Array.prototype.slice.call(object)
 
 # Generate a Github class
@@ -83,7 +83,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
 
     constructor: (clientOptions={}) ->
       # Provide an option to override the default URL
-      underscore.defaults clientOptions,
+      _.defaults clientOptions,
         rootURL: 'https://api.github.com'
         useETags: true
         usePostInsteadOfPatch: false
@@ -247,10 +247,10 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
       toQueryString = (options) ->
 
         # Returns '' if `options` is empty so this string can always be appended to a URL
-        return '' if underscore.isEmpty(options)
+        return '' if _.isEmpty(options)
 
         params = []
-        underscore.each underscore.pairs(options), ([key, value]) ->
+        _.each _.pairs(options), ([key, value]) ->
           params.push "#{key}=#{encodeURIComponent(value)}"
         return "?#{params.join('&')}"
 
@@ -458,13 +458,13 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           # Add Emails associated with this user
           # -------
           @addEmail = (emails) ->
-            emails = [emails] if !underscore.isArray(emails)
+            emails = [emails] if !_.isArray(emails)
             _request 'POST', '/user/emails', emails
 
           # Remove Emails associated with this user
           # -------
           @addEmail = (emails) ->
-            emails = [emails] if !underscore.isArray(emails)
+            emails = [emails] if !_.isArray(emails)
             _request 'DELETE', '/user/emails', emails
 
           # Get a single public key
@@ -645,8 +645,8 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           @getBranches = () ->
             _request('GET', "#{_repoPath}/git/refs/heads", null)
             .then (heads) =>
-              return underscore.map(heads, (head) ->
-                underscore.last head.ref.split("/")
+              return _.map(heads, (head) ->
+                _.last head.ref.split("/")
               )
             # Return the promise
             .promise()
@@ -666,7 +666,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
 
             @getTree(branch, {recursive:true})
             .then (tree) =>
-              file = underscore.select(tree, (file) ->
+              file = _.select(tree, (file) ->
                 file.path is path
               )[0]
               return file?.sha if file?.sha
@@ -770,7 +770,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           # and the new tree SHA, getting a commit SHA back
           # -------
           @commit = (parents, tree, message) ->
-            parents = [parents] if not underscore.isArray(parents)
+            parents = [parents] if not _.isArray(parents)
             data =
               message: message
               parents: parents
@@ -805,7 +805,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           # - `since`: ISO 8601 date - only commits after this date will be returned
           # - `until`: ISO 8601 date - only commits before this date will be returned
           @getCommits = (options={}) ->
-            options = underscore.extend {}, options
+            options = _.extend {}, options
 
             # Converts a Date object to a string
             getDate = (time) ->
@@ -845,7 +845,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
           # - `since`: ISO 8601 date - only commits after this date will be returned
           # - `until`: ISO 8601 date - only commits before this date will be returned
           @getCommits = (options={}) ->
-            options = underscore.extend {}, options
+            options = _.extend {}, options
             # Limit to the current branch
             _getRef()
             .then (branch) ->
@@ -926,7 +926,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
               .then (latestCommit) =>
                 _git.getTree(latestCommit, {recursive:true})
                 .then (tree) => # Update Tree
-                  underscore.each tree, (ref) ->
+                  _.each tree, (ref) ->
                     ref.path = newPath  if ref.path is path
                     delete ref.sha  if ref.type is 'tree'
 
@@ -985,7 +985,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             _getRef()
             .then (branch) => # See below for Step 0.
               afterParentCommitShas = (parentCommitShas) => # 1. Asynchronously send all the files as new blobs.
-                promises = underscore.map underscore.pairs(contents), ([path, data]) ->
+                promises = _.map _.pairs(contents), ([path, data]) ->
                   # `data` can be an object or a string.
                   # If it is a string assume isBase64 is false and the string is the content
                   content = data.content or data
@@ -1001,7 +1001,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
                 # 3. Wait on all the new blobs to finish
                 jQuery.when.apply(jQuery, promises)
                 .then (newTree1, newTree2, newTreeN) =>
-                  newTrees = underscore.toArray(arguments) # Convert args from jQuery.when back to an array. kludgy
+                  newTrees = _.toArray(arguments) # Convert args from jQuery.when back to an array. kludgy
                   _git.updateTreeMany(parentCommitShas, newTrees)
                   .then (tree) => # 4. Commit and update the branch
                     _git.commit(parentCommitShas, tree, message)

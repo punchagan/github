@@ -1,20 +1,20 @@
 (function() {
-  var Octokit, encode, err, jQuery, makeOctokit, najax, underscore,
+  var Octokit, encode, err, jQuery, makeOctokit, najax, _,
     _this = this,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
-  underscore = {};
+  _ = {};
 
-  underscore.isEmpty = function(object) {
+  _.isEmpty = function(object) {
     return Object.keys(object).length === 0;
   };
 
-  underscore.isArray = function(object) {
+  _.isArray = function(object) {
     return !!object.slice;
   };
 
-  underscore.defaults = function(object, values) {
+  _.defaults = function(object, values) {
     var key, _i, _len, _ref, _results;
     _ref = Object.keys(values);
     _results = [];
@@ -27,9 +27,9 @@
     return _results;
   };
 
-  underscore.each = function(object, fn) {
+  _.each = function(object, fn) {
     var arr, key, _i, _len, _ref, _results;
-    if (underscore.isArray(object)) {
+    if (_.isArray(object)) {
       object.forEach(fn);
     }
     arr = [];
@@ -44,7 +44,7 @@
     return _results;
   };
 
-  underscore.pairs = function(object) {
+  _.pairs = function(object) {
     var arr, key, _fn, _i, _len, _ref;
     arr = [];
     _ref = Object.keys(object);
@@ -58,9 +58,9 @@
     return arr;
   };
 
-  underscore.map = function(object, fn) {
+  _.map = function(object, fn) {
     var arr, key, _fn, _i, _len, _ref;
-    if (underscore.isArray(object)) {
+    if (_.isArray(object)) {
       return object.map(fn);
     }
     arr = [];
@@ -75,17 +75,17 @@
     return arr;
   };
 
-  underscore.last = function(object, n) {
+  _.last = function(object, n) {
     var len;
     len = object.length;
     return object.slice(len - n, len);
   };
 
-  underscore.select = function(object, fn) {
+  _.select = function(object, fn) {
     return object.filter(fn);
   };
 
-  underscore.extend = function(object, template) {
+  _.extend = function(object, template) {
     var key, _i, _len, _ref, _results;
     _ref = Object.keys(template);
     _results = [];
@@ -98,7 +98,7 @@
     return _results;
   };
 
-  underscore.toArray = function(object) {
+  _.toArray = function(object) {
     return Array.prototype.slice.call(object);
   };
 
@@ -110,7 +110,7 @@
         if (clientOptions == null) {
           clientOptions = {};
         }
-        underscore.defaults(clientOptions, {
+        _.defaults(clientOptions, {
           rootURL: 'https://api.github.com',
           useETags: true,
           usePostInsteadOfPatch: false
@@ -267,11 +267,11 @@
         };
         toQueryString = function(options) {
           var params;
-          if (underscore.isEmpty(options)) {
+          if (_.isEmpty(options)) {
             return '';
           }
           params = [];
-          underscore.each(underscore.pairs(options), function(_arg) {
+          _.each(_.pairs(options), function(_arg) {
             var key, value;
             key = _arg[0], value = _arg[1];
             return params.push("" + key + "=" + (encodeURIComponent(value)));
@@ -464,13 +464,13 @@
               return _request('GET', '/user/emails', null);
             };
             this.addEmail = function(emails) {
-              if (!underscore.isArray(emails)) {
+              if (!_.isArray(emails)) {
                 emails = [emails];
               }
               return _request('POST', '/user/emails', emails);
             };
             this.addEmail = function(emails) {
-              if (!underscore.isArray(emails)) {
+              if (!_.isArray(emails)) {
                 emails = [emails];
               }
               return _request('DELETE', '/user/emails', emails);
@@ -621,8 +621,8 @@
             this.getBranches = function() {
               var _this = this;
               return _request('GET', "" + _repoPath + "/git/refs/heads", null).then(function(heads) {
-                return underscore.map(heads, function(head) {
-                  return underscore.last(head.ref.split("/"));
+                return _.map(heads, function(head) {
+                  return _.last(head.ref.split("/"));
                 });
               }).promise();
             };
@@ -641,7 +641,7 @@
                 recursive: true
               }).then(function(tree) {
                 var file;
-                file = underscore.select(tree, function(file) {
+                file = _.select(tree, function(file) {
                   return file.path === path;
                 })[0];
                 if (file != null ? file.sha : void 0) {
@@ -729,7 +729,7 @@
             };
             this.commit = function(parents, tree, message) {
               var data;
-              if (!underscore.isArray(parents)) {
+              if (!_.isArray(parents)) {
                 parents = [parents];
               }
               data = {
@@ -762,7 +762,7 @@
               if (options == null) {
                 options = {};
               }
-              options = underscore.extend({}, options);
+              options = _.extend({}, options);
               getDate = function(time) {
                 if (Date === time.constructor) {
                   return time.toISOString();
@@ -797,7 +797,7 @@
               if (options == null) {
                 options = {};
               }
-              options = underscore.extend({}, options);
+              options = _.extend({}, options);
               return _getRef().then(function(branch) {
                 options.sha = branch;
                 return _git.getCommits(options);
@@ -865,7 +865,7 @@
                   return _git.getTree(latestCommit, {
                     recursive: true
                   }).then(function(tree) {
-                    underscore.each(tree, function(ref) {
+                    _.each(tree, function(ref) {
                       if (ref.path === path) {
                         ref.path = newPath;
                       }
@@ -911,7 +911,7 @@
                 var afterParentCommitShas;
                 afterParentCommitShas = function(parentCommitShas) {
                   var promises;
-                  promises = underscore.map(underscore.pairs(contents), function(_arg) {
+                  promises = _.map(_.pairs(contents), function(_arg) {
                     var content, data, isBase64, path,
                       _this = this;
                     path = _arg[0], data = _arg[1];
@@ -928,7 +928,7 @@
                   });
                   return jQuery.when.apply(jQuery, promises).then(function(newTree1, newTree2, newTreeN) {
                     var newTrees;
-                    newTrees = underscore.toArray(arguments);
+                    newTrees = _.toArray(arguments);
                     return _git.updateTreeMany(parentCommitShas, newTrees).then(function(tree) {
                       return _git.commit(parentCommitShas, tree, message).then(function(commitSha) {
                         return _git.updateHead(branch, commitSha).then(function(res) {
