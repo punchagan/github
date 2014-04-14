@@ -1314,7 +1314,7 @@
 
   if (typeof exports !== "undefined" && exports !== null) {
     Promise = require('es6-promise').Promise;
-    XMLHttpRequest = require('xmlhttprequest');
+    XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest;
     encode = function(str) {
       var buffer;
       buffer = new Buffer(str, 'binary');

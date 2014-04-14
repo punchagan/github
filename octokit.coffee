@@ -1391,7 +1391,7 @@ makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
 
 if exports?
   Promise         = require('es6-promise').Promise
-  XMLHttpRequest  = require 'xmlhttprequest'
+  XMLHttpRequest  = require('xmlhttprequest').XMLHttpRequest
   # Encode using native Base64
   encode = (str) ->
     buffer = new Buffer(str, 'binary')
