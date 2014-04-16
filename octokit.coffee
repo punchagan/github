@@ -1068,7 +1068,7 @@ makeOctokit = (jQuery, base64encode, userAgent) =>
             getRef = =>
               @getInfo()
               .then (info) =>
-                return info.master_branch
+                return info.default_branch
             new Branch(@git, getRef)
 
 

@@ -991,7 +991,7 @@
                 _this = this;
               getRef = function() {
                 return _this.getInfo().then(function(info) {
-                  return info.master_branch;
+                  return info.default_branch;
                 });
               };
               return new Branch(this.git, getRef);

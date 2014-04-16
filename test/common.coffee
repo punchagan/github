@@ -116,7 +116,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
               initialCommit = commits[commits.length-1]
               sha = initialCommit.sha
 
-              masterBranch = repoInfo.master_branch
+              masterBranch = repoInfo.default_branch
               console.log('BEFORE: Found master branch')
               console.log("BEFORE: Updating #{masterBranch} to #{sha}")
               trapFail(STATE[REPO].git.updateHead(masterBranch, sha, true)) # true == force
