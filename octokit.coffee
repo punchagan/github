@@ -78,11 +78,11 @@ _.toArray = (object) ->
 #
 # Depending on how this is loaded (nodejs, requirejs, globals)
 # the actual underscore, jQuery.ajax/Deferred, and base64 encode functions may differ.
-makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
+makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent) =>
 
   # Simple jQuery.ajax() shim that returns a promise for a xhr object
   ajax = (options) ->
-    return new Promise (resolve, reject) ->
+    return newPromise (resolve, reject) ->
 
       xhr = new XMLHttpRequest()
       xhr.dataType = options.dataType
@@ -172,7 +172,7 @@ makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
           headers['Authorization'] = auth
 
 
-        promise = new Promise (resolve, reject) ->
+        promise = newPromise (resolve, reject) ->
 
           ajaxConfig =
             # Be sure to **not** blow the cache with a random number
@@ -252,7 +252,7 @@ makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
               resolve(data, jqXHR.status, jqXHR)
 
           # Parse the error if one occurs
-          .catch (jqXHR) ->
+          onError = (jqXHR) ->
             always(jqXHR)
 
             # If the request was for a Boolean then a 404 should be treated as a "false"
@@ -271,6 +271,9 @@ makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
                   # In the case of 404 errors, `responseText` is an empty string
                   json = ''
                 reject {error: json, status: jqXHR.status, _jqXHR: jqXHR}
+
+          # Depending on the Promise implementation, the `catch` method may be `.catch` or `.fail`
+          xhrPromise.catch?(onError) or xhrPromise.fail(onError)
 
         notifyStart(promise, path)
         # Return the promise
@@ -995,7 +998,10 @@ makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
                       sha: blob
                     }
                 # 3. Wait on all the new blobs to finish
-                Promise.all(promises)
+                # Different Promise APIs implement this differently. For example:
+                # - Promise uses `Promise.all([...])`
+                # - jQuery uses `jQuery.when(p1, p2, p3, ...)`
+                allPromises(promises)
                 .then (newTrees) =>
                   _git.updateTreeMany(parentCommitShas, newTrees)
                   .then (tree) => # 4. Commit and update the branch
@@ -1059,7 +1065,7 @@ makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
             getRef = =>
               @getInfo()
               .then (info) =>
-                return info.master_branch
+                return info.default_branch
             new Branch(@git, getRef)
 
 
@@ -1390,41 +1396,74 @@ makeOctokit = (Promise, XMLHttpRequest, base64encode, userAgent) =>
 # Depending on the context this file is called, register it appropriately
 
 if exports?
-  Promise         = require('es6-promise').Promise
+  # Use native promises if Harmony is on
+  Promise         = @Promise or require('es6-promise').Promise
   XMLHttpRequest  = require('xmlhttprequest').XMLHttpRequest
+
+  newPromise = (fn) -> return new Promise(fn)
   # Encode using native Base64
   encode = (str) ->
     buffer = new Buffer(str, 'binary')
     return buffer.toString('base64')
-  Octokit = makeOctokit(Promise, XMLHttpRequest, encode, 'octokit') # `User-Agent` (for nodejs)
+  Octokit = makeOctokit(newPromise, Promise.all, XMLHttpRequest, encode, 'octokit') # `User-Agent` (for nodejs)
   exports.new = (options) -> new Octokit(options)
 
-# If requirejs is detected then define this module
-else if @Promise and @define?
-  # If the browser has the native Base64 encode function `btoa` use it.
-  # Otherwise, try to use the javascript Base64 code.
-  if @btoa
-    @define 'octokit', [], () ->
-      return makeOctokit(@Promise, @XMLHttpRequest, @btoa)
-  else
-    @define 'octokit', ['base64'], (Base64) ->
-      return makeOctokit(@Promise, @XMLHttpRequest, Base64.encode)
-
-# If a global jQuery is loaded, use it
-else if @Promise and (@btoa or @Base64)
-  # Use the `btoa` function if it is defined (Webkit/Mozilla) and fail back to
-  # `Base64.encode` otherwise (IE)
-  encode = @btoa or @Base64.encode
-  Octokit = makeOctokit(@Promise, @XMLHttpRequest, encode)
-  # Assign to a global `Octokit`
-  @Octokit = Octokit
-  @Github = Octokit
-
-# Otherwise, throw an error
 else
-  err = (msg) ->
-    console?.error?(msg)
-    throw new Error(msg)
 
-  err 'Promise must be available. Please include a Polyfill for it first. Like https://github.com/jakearchibald/es6-promise' if not @Promise
-  err 'Base64 not included' if not (@btoa or @Base64)
+  # Octokit is being used in the browser.
+  # Find a Promise API and register with `define` (if available)
+
+  # Register Octokit once a Promise API is loaded.
+  # In the case of angular, this may be async.
+  createGlobalAndAMD = (newPromise, allPromises) =>
+    if @define?
+      @define 'octokit', [], () =>
+        return makeOctokit(newPromise, allPromises, @XMLHttpRequest, @btoa)
+    else
+      Octokit = makeOctokit(newPromise, allPromises, @XMLHttpRequest, @btoa)
+      # Assign to a global `Octokit`
+      @Octokit = Octokit
+      @Github = Octokit
+
+  # Determine the correct Promise factory
+  # Try in the following order:
+  # - native Promise or a polyfill
+  # - angularjs Promise
+  # - jQuery Promise
+  if @Promise
+    newPromise = (fn) => return new @Promise(fn)
+    allPromises = @Promise.all
+    createGlobalAndAMD(newPromise, allPromises)
+  else if @angular
+    # Details on Angular Promises: http://docs.angularjs.org/api/ng/service/$q
+    injector = angular.injector(['ng'])
+    injector.invoke ($q) ->
+      newPromise = (fn) ->
+        $promise = $q.defer()
+        resolve = (val) -> $promise.resolve(val)
+        reject  = (val) -> $promise.reject(val)
+        fn(resolve, reject)
+        return $promise.promise()
+      allPromises = () -> $q.all(arguments)
+      createGlobalAndAMD(newPromise, allPromises)
+  else if @jQuery
+    newPromise = (fn) =>
+      promise = @jQuery.Deferred()
+      resolve = (val) -> promise.resolve(val)
+      reject  = (val) -> promise.reject(val)
+      fn(resolve, reject)
+      return promise.promise()
+    allPromises = (promises) =>
+      # `jQuery.when` is a little odd.
+      # - It accepts each promise as an argument (instead of an array of promises)
+      # - Each resolved value is an argument (instead of an array of values)
+      #
+      # So, convert the array of promises to args and then the resolved args to an array
+      return @jQuery.when(promises...).then((promises...) -> return promises)
+    createGlobalAndAMD(newPromise, allPromises)
+  else
+    # Otherwise, throw an error
+    err = (msg) ->
+      console?.error?(msg)
+      throw new Error(msg)
+    err('A Promise API was not found. Supported libraries that have Promises are jQuery, angularjs, and https://github.com/jakearchibald/es6-promise')

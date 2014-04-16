@@ -29,9 +29,13 @@ makeTests = (assert, expect, btoa, Octokit) ->
     return false
 
   trapFail = (promise) ->
-    promise.catch (err) ->
+    onError = (err) ->
       console.error(JSON.stringify(err))
       assert.catch(err)
+    # Depending on the Promise implementation the fail method could be:
+    # - `.catch` (native Promise)
+    # - `.fail` (jQuery or angularjs)
+    promise.catch?(onError) or promise.fail(onError)
     return promise
 
   helper1 = (done, promise, func) ->
@@ -116,7 +120,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
               initialCommit = commits[commits.length-1]
               sha = initialCommit.sha
 
-              masterBranch = repoInfo.master_branch
+              masterBranch = repoInfo.default_branch
               console.log('BEFORE: Found master branch')
               console.log("BEFORE: Updating #{masterBranch} to #{sha}")
               trapFail(STATE[REPO].git.updateHead(masterBranch, sha, true)) # true == force
@@ -133,8 +137,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
 
         # Make sure the repo is empty by deleting it and creating a new one
         console.log('BEFORE: Checking if repo exists')
-        STATE[REPO].getInfo()
-        .catch(() -> createRepo())
+        promise = STATE[REPO].getInfo()
         .then (val) ->
           # HACK: najax seems to ignore the HTTP Status
           if 'Not Found' == val.message
@@ -145,6 +148,11 @@ makeTests = (assert, expect, btoa, Octokit) ->
 
           # Send the repoInfo so we do not rely on cached results (najax does not like that for now)
           resetRepoToFirstCommit(val)
+
+        # Depending on the Promise implementation the fail method could be:
+        # - `.catch` (native Promise)
+        # - `.fail` (jQuery or angularjs)
+        promise.catch?(createRepo) or promise.fail(createRepo)
 
       describe 'Initially:', () ->
         it 'has one commit', (done) ->

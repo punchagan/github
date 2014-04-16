@@ -1,8 +1,9 @@
 (function() {
-  var Octokit, Promise, XMLHttpRequest, encode, err, makeOctokit, _,
+  var Octokit, Promise, XMLHttpRequest, allPromises, createGlobalAndAMD, encode, err, injector, makeOctokit, newPromise, _,
     _this = this,
     __hasProp = {}.hasOwnProperty,
-    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    __slice = [].slice;
 
   _ = {};
 
@@ -102,10 +103,10 @@
     return Array.prototype.slice.call(object);
   };
 
-  makeOctokit = function(Promise, XMLHttpRequest, base64encode, userAgent) {
+  makeOctokit = function(newPromise, allPromises, XMLHttpRequest, base64encode, userAgent) {
     var Octokit, ajax;
     ajax = function(options) {
-      return new Promise(function(resolve, reject) {
+      return newPromise(function(resolve, reject) {
         var name, value, xhr, _ref;
         xhr = new XMLHttpRequest();
         xhr.dataType = options.dataType;
@@ -210,8 +211,8 @@
             }
             headers['Authorization'] = auth;
           }
-          promise = new Promise(function(resolve, reject) {
-            var ajaxConfig, always, xhrPromise,
+          promise = newPromise(function(resolve, reject) {
+            var ajaxConfig, always, onError, xhrPromise,
               _this = this;
             ajaxConfig = {
               url: clientOptions.rootURL + path,
@@ -246,7 +247,7 @@
               }
               return _results;
             };
-            return xhrPromise.then(function(jqXHR) {
+            xhrPromise.then(function(jqXHR) {
               var converted, eTag, eTagResponse, i, _i, _ref;
               always(jqXHR);
               if (304 === jqXHR.status) {
@@ -277,7 +278,8 @@
                 }
                 return resolve(data, jqXHR.status, jqXHR);
               }
-            })["catch"](function(jqXHR) {
+            });
+            onError = function(jqXHR) {
               var json;
               always(jqXHR);
               if (options.isBoolean && 404 === jqXHR.status) {
@@ -302,7 +304,8 @@
                   });
                 }
               }
-            });
+            };
+            return (typeof xhrPromise["catch"] === "function" ? xhrPromise["catch"](onError) : void 0) || xhrPromise.fail(onError);
           });
           notifyStart(promise, path);
           return promise;
@@ -965,7 +968,7 @@
                       };
                     });
                   });
-                  return Promise.all(promises).then(function(newTrees) {
+                  return allPromises(promises).then(function(newTrees) {
                     return _git.updateTreeMany(parentCommitShas, newTrees).then(function(tree) {
                       return _git.commit(parentCommitShas, tree, message).then(function(commitSha) {
                         return _git.updateHead(branch, commitSha).then(function(res) {
@@ -1025,7 +1028,7 @@
                 _this = this;
               getRef = function() {
                 return _this.getInfo().then(function(info) {
-                  return info.master_branch;
+                  return info.default_branch;
                 });
               };
               return new Branch(this.git, getRef);
@@ -1313,46 +1316,90 @@
   };
 
   if (typeof exports !== "undefined" && exports !== null) {
-    Promise = require('es6-promise').Promise;
+    Promise = this.Promise || require('es6-promise').Promise;
     XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest;
+    newPromise = function(fn) {
+      return new Promise(fn);
+    };
     encode = function(str) {
       var buffer;
       buffer = new Buffer(str, 'binary');
       return buffer.toString('base64');
     };
-    Octokit = makeOctokit(Promise, XMLHttpRequest, encode, 'octokit');
+    Octokit = makeOctokit(newPromise, Promise.all, XMLHttpRequest, encode, 'octokit');
     exports["new"] = function(options) {
       return new Octokit(options);
     };
-  } else if (this.Promise && (this.define != null)) {
-    if (this.btoa) {
-      this.define('octokit', [], function() {
-        return makeOctokit(this.Promise, this.XMLHttpRequest, this.btoa);
-      });
-    } else {
-      this.define('octokit', ['base64'], function(Base64) {
-        return makeOctokit(this.Promise, this.XMLHttpRequest, Base64.encode);
-      });
-    }
-  } else if (this.Promise && (this.btoa || this.Base64)) {
-    encode = this.btoa || this.Base64.encode;
-    Octokit = makeOctokit(this.Promise, this.XMLHttpRequest, encode);
-    this.Octokit = Octokit;
-    this.Github = Octokit;
   } else {
-    err = function(msg) {
-      if (typeof console !== "undefined" && console !== null) {
-        if (typeof console.error === "function") {
-          console.error(msg);
-        }
+    createGlobalAndAMD = function(newPromise, allPromises) {
+      if (_this.define != null) {
+        return _this.define('octokit', [], function() {
+          return makeOctokit(newPromise, allPromises, _this.XMLHttpRequest, _this.btoa);
+        });
+      } else {
+        Octokit = makeOctokit(newPromise, allPromises, _this.XMLHttpRequest, _this.btoa);
+        _this.Octokit = Octokit;
+        return _this.Github = Octokit;
       }
-      throw new Error(msg);
     };
-    if (!this.Promise) {
-      err('Promise must be available. Please include a Polyfill for it first. Like https://github.com/jakearchibald/es6-promise');
-    }
-    if (!(this.btoa || this.Base64)) {
-      err('Base64 not included');
+    if (this.Promise) {
+      newPromise = function(fn) {
+        return new _this.Promise(fn);
+      };
+      allPromises = this.Promise.all;
+      createGlobalAndAMD(newPromise, allPromises);
+    } else if (this.angular) {
+      injector = angular.injector(['ng']);
+      injector.invoke(function($q) {
+        newPromise = function(fn) {
+          var $promise, reject, resolve;
+          $promise = $q.defer();
+          resolve = function(val) {
+            return $promise.resolve(val);
+          };
+          reject = function(val) {
+            return $promise.reject(val);
+          };
+          fn(resolve, reject);
+          return $promise.promise();
+        };
+        allPromises = function() {
+          return $q.all(arguments);
+        };
+        return createGlobalAndAMD(newPromise, allPromises);
+      });
+    } else if (this.jQuery) {
+      newPromise = function(fn) {
+        var promise, reject, resolve;
+        promise = _this.jQuery.Deferred();
+        resolve = function(val) {
+          return promise.resolve(val);
+        };
+        reject = function(val) {
+          return promise.reject(val);
+        };
+        fn(resolve, reject);
+        return promise.promise();
+      };
+      allPromises = function(promises) {
+        var _ref;
+        return (_ref = _this.jQuery).when.apply(_ref, promises).then(function() {
+          var promises;
+          promises = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          return promises;
+        });
+      };
+      createGlobalAndAMD(newPromise, allPromises);
+    } else {
+      err = function(msg) {
+        if (typeof console !== "undefined" && console !== null) {
+          if (typeof console.error === "function") {
+            console.error(msg);
+          }
+        }
+        throw new Error(msg);
+      };
+      err('A Promise API was not found. Supported libraries that have Promises are jQuery, angularjs, and https://github.com/jakearchibald/es6-promise');
     }
   }
 
