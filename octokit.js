@@ -1321,12 +1321,15 @@
     newPromise = function(fn) {
       return new Promise(fn);
     };
+    allPromises = function(promises) {
+      return Promise.all(promises);
+    };
     encode = function(str) {
       var buffer;
       buffer = new Buffer(str, 'binary');
       return buffer.toString('base64');
     };
-    Octokit = makeOctokit(newPromise, Promise.all, XMLHttpRequest, encode, 'octokit');
+    Octokit = makeOctokit(newPromise, allPromises, XMLHttpRequest, encode, 'octokit');
     exports["new"] = function(options) {
       return new Octokit(options);
     };

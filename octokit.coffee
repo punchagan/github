@@ -1401,11 +1401,12 @@ if exports?
   XMLHttpRequest  = require('xmlhttprequest').XMLHttpRequest
 
   newPromise = (fn) -> return new Promise(fn)
+  allPromises = (promises) -> return Promise.all(promises)
   # Encode using native Base64
   encode = (str) ->
     buffer = new Buffer(str, 'binary')
     return buffer.toString('base64')
-  Octokit = makeOctokit(newPromise, Promise.all, XMLHttpRequest, encode, 'octokit') # `User-Agent` (for nodejs)
+  Octokit = makeOctokit(newPromise, allPromises, XMLHttpRequest, encode, 'octokit') # `User-Agent` (for nodejs)
   exports.new = (options) -> new Octokit(options)
 
 else
