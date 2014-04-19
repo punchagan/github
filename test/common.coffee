@@ -29,9 +29,13 @@ makeTests = (assert, expect, btoa, Octokit) ->
     return false
 
   trapFail = (promise) ->
-    promise.fail (err) ->
+    onError = (err) ->
       console.error(JSON.stringify(err))
-      assert.fail(err)
+      assert.catch(err)
+    # Depending on the Promise implementation the fail method could be:
+    # - `.catch` (native Promise)
+    # - `.fail` (jQuery or angularjs)
+    promise.catch?(onError) or promise.fail(onError)
     return promise
 
   helper1 = (done, promise, func) ->
@@ -101,7 +105,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
             auto_init: true # Make an initial `master` branch and commit
 
           trapFail(STATE[USER].createRepo(REPO_NAME, options))
-          .done () ->
+          .then () ->
             console.log('BEFORE: Done Creating test repo')
             setTimeout(done, SHORT_TIMEOUT)
 
@@ -110,7 +114,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
             console.log('BEFORE: Found commits')
             if options?.next
               trapFail(options.next())
-              .done(findLastCommits)
+              .then(findLastCommits)
             else
               console.log('BEFORE: Finding master branch')
               initialCommit = commits[commits.length-1]
@@ -120,40 +124,46 @@ makeTests = (assert, expect, btoa, Octokit) ->
               console.log('BEFORE: Found master branch')
               console.log("BEFORE: Updating #{masterBranch} to #{sha}")
               trapFail(STATE[REPO].git.updateHead(masterBranch, sha, true)) # true == force
-              .done () =>
+              .then () =>
                 console.log('BEFORE: Updated HEAD')
                 done()
 
-          console.log('BEFORE: Resetting test repo')
+          console.log('BEFORE: Resetting test repo name and homepage')
           trapFail(STATE[REPO].updateInfo({name: REPO_NAME, homepage: REPO_HOMEPAGE}))
-          trapFail(STATE[REPO].getCommits())
-          .done (findLastCommits)
+          .then () ->
+            console.log('BEFORE: Getting recent commits')
+            trapFail(STATE[REPO].getCommits())
+            .then(findLastCommits)
 
         # Make sure the repo is empty by deleting it and creating a new one
         console.log('BEFORE: Checking if repo exists')
-        STATE[REPO].getInfo()
-        .fail(() -> createRepo())
-        .done (val) ->
+        promise = STATE[REPO].getInfo()
+        .then (val) ->
           # HACK: najax seems to ignore the HTTP Status
           if 'Not Found' == val.message
             return createRepo()
           # STATE[REPO].git.deleteRepo()
-          # .fail(() -> resetRepoToFirstCommit)
-          # .done () -> createRepo()
+          # .catch(() -> resetRepoToFirstCommit)
+          # .then () -> createRepo()
 
           # Send the repoInfo so we do not rely on cached results (najax does not like that for now)
           resetRepoToFirstCommit(val)
 
+        # Depending on the Promise implementation the fail method could be:
+        # - `.catch` (native Promise)
+        # - `.fail` (jQuery or angularjs)
+        promise.catch?(createRepo) or promise.fail(createRepo)
+
       describe 'Initially:', () ->
         it 'has one commit', (done) ->
           trapFail(STATE[REPO].getCommits())
-          .done (val) ->
+          .then (val) ->
             expect(val).to.have.length(1)
             done()
 
         it 'has one branch', (done) ->
           trapFail(STATE[REPO].getBranches())
-          .done (branches) ->
+          .then (branches) ->
             expect(branches).to.have.length(1)
             done()
 
@@ -163,10 +173,10 @@ makeTests = (assert, expect, btoa, Octokit) ->
           FILE_TEXT = 'Hello there'
 
           trapFail(STATE[BRANCH].write(FILE_PATH, FILE_TEXT))
-          .done (sha) ->
+          .then (sha) ->
             # Read the file back
             trapFail(STATE[BRANCH].read(FILE_PATH))
-            .done (val) ->
+            .then (val) ->
               expect(val.content).to.equal(FILE_TEXT)
               PREV_SHA = val.sha
               done()
@@ -174,7 +184,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
         it 'removes a single file', (done) ->
           FILE_PATH = 'test.txt'
           trapFail(STATE[BRANCH].remove(FILE_PATH))
-          .done () ->
+          .then () ->
             done()
 
         it 'commits multiple files at once (including binary ones)', (done) ->
@@ -186,13 +196,13 @@ makeTests = (assert, expect, btoa, Octokit) ->
           contents[FILE2] = {content:btoa(BINARY_DATA), isBase64:true}
 
           trapFail(STATE[BRANCH].writeMany(contents))
-          .done () ->
+          .then () ->
             # Read the files and verify they were added
             trapFail(STATE[BRANCH].read(FILE1))
-            .done (val) ->
+            .then (val) ->
               expect(val.content).to.equal(contents[FILE1])
               trapFail(STATE[BRANCH].read(FILE2))
-              .done (val) ->
+              .then (val) ->
                 expect(val.content).to.equal(contents[FILE2].content)
                 done()
 
@@ -205,30 +215,26 @@ makeTests = (assert, expect, btoa, Octokit) ->
           helper1 done, STATE[REPO].getCollaborators(), (collaborators) ->
             expect(collaborators).to.have.length(1)
 
-        if IS_NODE
-          console.log('SKIPPING: najax does not support boolean GET requests yet (204/404 responses) so skipping a few for now')
-        else
+        it 'initially the collaborator should be [USERNAME]', (done) ->
+          helper1 done, STATE[REPO].isCollaborator(USERNAME), (canCollaborate) ->
+            expect(canCollaborate).to.be.true
 
-          it 'initially the collaborator should be [USERNAME]', (done) ->
-            helper1 done, STATE[REPO].isCollaborator(USERNAME), (canCollaborate) ->
+        it 'the current user should be able to collaborate', (done) ->
+          helper1 done, STATE[REPO].canCollaborate(), (canCollaborate) ->
+            expect(canCollaborate).to.be.true
+
+        it 'should be able to add and remove a collaborator', (done) ->
+          helper2 STATE[REPO].addCollaborator(OTHER_USERNAME), (added) ->
+            expect(added).to.be.true
+
+            helper2 STATE[REPO].isCollaborator(OTHER_USERNAME), (canCollaborate) ->
               expect(canCollaborate).to.be.true
 
-          it 'the current user should be able to collaborate', (done) ->
-            helper1 done, STATE[REPO].canCollaborate(), (canCollaborate) ->
-              expect(canCollaborate).to.be.true
+              helper2 STATE[REPO].removeCollaborator(OTHER_USERNAME), (removed) ->
+                expect(removed).to.be.true
 
-          it 'should be able to add and remove a collaborator', (done) ->
-            helper2 STATE[REPO].addCollaborator(OTHER_USERNAME), (added) ->
-              expect(added).to.be.true
-
-              helper2 STATE[REPO].isCollaborator(OTHER_USERNAME), (canCollaborate) ->
-                expect(canCollaborate).to.be.true
-
-                helper2 STATE[REPO].removeCollaborator(OTHER_USERNAME), (removed) ->
-                  expect(removed).to.be.true
-
-                  helper1 done, STATE[REPO].isCollaborator(OTHER_USERNAME), (canCollaborate) ->
-                    expect(canCollaborate).to.be.false
+                helper1 done, STATE[REPO].isCollaborator(OTHER_USERNAME), (canCollaborate) ->
+                  expect(canCollaborate).to.be.false
 
       describe 'Editing Repository:', () ->
         it 'initially the repository homepage should be [REPO_HOMEPAGE]', (done) ->

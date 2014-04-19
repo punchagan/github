@@ -2,14 +2,14 @@
 
 octokit.js provides a minimal higher-level wrapper around git's [plumbing commands](http://git-scm.com/book/en/Git-Internals-Plumbing-and-Porcelain),
 exposing an API for manipulating GitHub repositories, users, groups, and gists.
-It is being developed in the context of [github-bookeditor](http://github.com/oerpub/github-bookeditor), an EPUB3 editor for GitHub.
+It is being developed in the context of [github-bookeditor](https://github.com/oerpub/github-bookeditor), an EPUB3 editor for GitHub.
 
 This package can also be used in `nodejs` or as an AMD module in the browser.
 
 ## Key Features
 
-- Works in `nodejs`, a AMD module in the browser, a [bower](https://github.com/bower/bower) library
-- Simple `read` and `write` methods for text and binary files
+- Works in `nodejs`, an AMD module in the browser, and as a [bower](https://github.com/bower/bower) library
+- Simple `read` and `write` methods for text _and_ binary files
 - Creating gists, Pull Requests, forks, and new Repositories
 - `ETag` Caching
 - Promises instead of callbacks (for better error-handling and progress updating)
@@ -25,8 +25,6 @@ This package can also be used in `nodejs` or as an AMD module in the browser.
 ## Usage
 
 All asynchronous methods return a [Common-JS Promise](http://wiki.commonjs.org/wiki/Promises/A).
-See [jQuery.Deferred](http://api.jquery.com/category/deferred-object/) or
-[Node's Q](https://github.com/kriskowal/q) for more information.
 
 ### In a browser without requirejs
 
@@ -34,8 +32,8 @@ Create an Octokit instance.
 
 ```js
 var gh = new Octokit({
-  username: "YOU_USER",
-  password: "YOUR_PASSWORD"
+  username: "USER_NAME",
+  password: "PASSWORD"
 });
 ```
 
@@ -94,29 +92,28 @@ Show repository information
 
 ```js
 repo.getInfo()
-.done(function(repo) {})
-.fail(function(err) {});
+.then(function(repo) {})
 ```
 
 List all branches in a Repository
 
 ```js
 repo.getBranches()
-.done(function(branches) {});
+.then(function(branches) {});
 ```
 
 Fork a repository
 
 ```js
 repo.fork()
-.done(function() {});
+.then(function() {});
 ```
 
 Create a Pull Request
 
 ```js
 repo.createPullRequest()
-.done(function() {});
+.then(function() {});
 ```
 
 Get recent commits to the repository
@@ -124,28 +121,28 @@ Get recent commits to the repository
 ```js
 var options = {};
 repo.getCommits(options)
-.done(function(commits) {});
+.then(function(commits) {});
 ```
 
 List Repository events
 
 ```js
 repo.getEvents()
-.done(function(events) {});
+.then(function(events) {});
 ```
 
 List Issue events for the repository
 
 ```js
 repo.getIssueEvents()
-.done(function(events) {});
+.then(function(events) {});
 ```
 
 List events for a network of Repositories
 
 ```js
 repo.getNetworkEvents()
-.done(function(events) {});
+.then(function(events) {});
 ```
 
 List unread notifications for authenticated user pertaining to this repository
@@ -153,20 +150,20 @@ List unread notifications for authenticated user pertaining to this repository
 ```js
 var options = {};
 repo.getNotifications(options)
-.done(function(events) {});
+.then(function(events) {});
 ```
 
 Get programming language counts (CoffeeScript, Ruby, Shell)
 
 ```js
 repo.getLanguages()
-.done(function(events) {});
+.then(function(events) {});
 ```
 
 Get releases
 ```js
 repo.getReleases()
-.done(function(releases) {});
+.then(function(releases) {});
 ```
 
 ### Branch API
@@ -190,8 +187,7 @@ Read a file from the branch
 ```js
 var isBinary = false;
 branch.read('PATH/TO/FILE.txt', isBinary)
-.done(function(contents) {})
-.fail(function(err) {});
+.then(function(contents) {})
 ```
 
 Remove a file from the branch
@@ -199,21 +195,21 @@ Remove a file from the branch
 ```js
 var message = "OPTIONAL COMMIT MESSAGE";
 branch.remove('PATH/TO/FILE.txt', message)
-.done(function() {});
+.then(function() {});
 ```
 
 Read the contents (raw) of a file or directory
 
 ```js
 branch.contents('DIRECTORY/PATH')
-.done(function(contents) {});
+.then(function(contents) {});
 ```
 
 or
 
 ```js
 branch.contents('DIRECTORY/PATH/FILE.txt')
-.done(function(contents) {});
+.then(function(contents) {});
 ```
 
 Move a file
@@ -221,7 +217,7 @@ Move a file
 ```js
 var message = "OPTIONAL COMMIT MESSAGE";
 branch.move('PATH/TO/FILE.txt', 'NEW/PATH/TO/FILE.txt', message)
-.done(function() {});
+.then(function() {});
 ```
 
 Write a file (update or add)
@@ -231,7 +227,7 @@ var content = "Contents of the file";
 var message = "OPTIONAL COMMIT MESSAGE";
 var isBinary = false;
 branch.write('PATH/TO/FILE.txt', content, message, isBinary)
-.done(function() {});
+.then(function() {});
 ```
 
 Write multiple files (update or add) in one commit
@@ -242,7 +238,7 @@ var contents = {
   "FILE2.txt": {isBase64: true, content: "BASE_64_ENCODED_STRING"}
 }
 branch.writeMany(contents, message)
-.done(function() {});
+.then(function() {});
 ```
 
 Get recent commits to a branch
@@ -250,14 +246,14 @@ Get recent commits to a branch
 ```js
 var options = {};
 branch.getCommits(options)
-.done(function(commits) {});
+.then(function(commits) {});
 ```
 
 Create a new branch
 
 ```js
 branch.createBranch("new-branch-name")
-.done(function() {});
+.then(function() {});
 ```
 
 
@@ -266,19 +262,19 @@ branch.createBranch("new-branch-name")
 The methods on a branch or repo use the following low-level methods.
 
 ```js
-repo.git.getRef(...)      .done(function(result) {});
-repo.git.createRef(...)   .done(function(result) {});
-repo.git.deleteRef(...)   .done(function(result) {});
-repo.git.getBranches()    .done(function(result) {});
-repo.git.getBlob(...)     .done(function(result) {});
-repo.git.getSha(...)      .done(function(result) {});
-repo.git.getTree(...)     .done(function(result) {});
-repo.git.postBlob(...)    .done(function(result) {});
-repo.git.updateTree(...)  .done(function(result) {});
-repo.git.postTree(...)    .done(function(result) {});
-repo.git.commit(...)      .done(function(result) {});
-repo.git.updateHead(...)  .done(function(result) {});
-repo.git.getCommits(...)  .done(function(result) {});
+repo.git.getRef(...)      .then(function(result) {});
+repo.git.createRef(...)   .then(function(result) {});
+repo.git.deleteRef(...)   .then(function(result) {});
+repo.git.getBranches()    .then(function(result) {});
+repo.git.getBlob(...)     .then(function(result) {});
+repo.git.getSha(...)      .then(function(result) {});
+repo.git.getTree(...)     .then(function(result) {});
+repo.git.postBlob(...)    .then(function(result) {});
+repo.git.updateTree(...)  .then(function(result) {});
+repo.git.postTree(...)    .then(function(result) {});
+repo.git.commit(...)      .then(function(result) {});
+repo.git.updateHead(...)  .then(function(result) {});
+repo.git.getCommits(...)  .then(function(result) {});
 ```
 
 
@@ -286,15 +282,14 @@ repo.git.getCommits(...)  .done(function(result) {});
 
 
 ```js
-var user = gh.getUser("ANY_GITHUB_USERNAME");
+var user = gh.getUser(GITHUB_USERNAME);
 ```
 
 Show user information for a particular user. Also works for organizations.
 
 ```js
 user.getInfo()
-.done(function(user) {})
-.fail(function(err) {});
+.then(function(user) {})
 ```
 
 List public repositories for a particular user.
@@ -302,49 +297,49 @@ _options described [here](http://developer.github.com/v3/repos/#list-user-reposi
 
 ```js
 user.getRepos(type='all', sort='pushed', direction='desc')
-.done(function(repos) {});
+.then(function(repos) {});
 ```
 
 List organizations the user is in.
 
 ```js
 user.getOrgs()
-.done(function(orgs) {});
+.then(function(orgs) {});
 ```
 
 List all gists of a particular user.
 
 ```js
 user.getGists()
-.done(function(gists) {});
+.then(function(gists) {});
 ```
 
 List users following this user.
 
 ```js
 user.getFollowers()
-.done(function(users) {});
+.then(function(users) {});
 ```
 
 List users this user is following.
 
 ```js
 user.getFollowing()
-.done(function(users) {});
+.then(function(users) {});
 ```
 
 Get Received events for this user.
 
 ```js
 user.getReceivedEvents()
-.done(function(events) {});
+.then(function(events) {});
 ```
 
 Get all events for this user.
 
 ```js
 user.getEvents()
-.done(function(events) {});
+.then(function(events) {});
 ```
 
 
@@ -362,31 +357,28 @@ List unread notifications for the user.
 
 ```js
 gh.getNotifications()
-.done(function(notifications) {})
-.fail(function(err) {});
+.then(function(notifications) {})
 ```
 
 List private and public repositories of the current authenticated user.
 
 ```js
 user.getRepos()
-.done(function(repos) {});
+.then(function(repos) {});
 ```
 
 Follow another user.
 
 ```js
-var username "SOME_OTHER_USERNAME";
-user.follow(username)
-.done(function(orgs) {});
+user.follow("OTHER_USERNAME")
+.then(function(orgs) {});
 ```
 
 Stop following another user.
 
 ```js
-var username "SOME_OTHER_USERNAME";
-user.unfollow(username)
-.done(function(orgs) {});
+user.unfollow("OTHER_USERNAME")
+.then(function(orgs) {});
 ```
 
 
@@ -400,7 +392,7 @@ Read the contents of a Gist.
 
 ```js
 gist.read()
-.done(function(gist) {});
+.then(function(gist) {});
 ```
 
 Update the contents of a Gist. Please consult the documentation on [GitHub](http://developer.github.com/v3/gists/).
@@ -424,7 +416,7 @@ var delta = {
 };
 
 gist.update(delta)
-.done(function(gist) {});
+.then(function(gist) {});
 ```
 
 Create a Gist
@@ -435,42 +427,42 @@ var files = {
 };
 
 gh.getGist().create(files)
-.done(function(gist) {});
+.then(function(gist) {});
 ```
 
 Delete the Gist
 
 ```js
 gist.delete()
-.done(function(gist) {});
+.then(function(gist) {});
 ```
 
 Fork the Gist
 
 ```js
 gist.fork()
-.done(function(gist) {});
+.then(function(gist) {});
 ```
 
 Star the Gist
 
 ```js
 gist.star()
-.done(function() {});
+.then(function() {});
 ```
 
 Unstar the Gist
 
 ```js
 gist.unstar()
-.done(function() {});
+.then(function() {});
 ```
 
 Check if the Gist is starred
 
 ```js
 gist.isStarred()
-.done(function() {});
+.then(function() {});
 ```
 
 
@@ -480,8 +472,7 @@ Retreive a zen message (to test the API works).
 
 ```js
 gh.getZen()
-.done(function(msg) {})
-.fail(function(err) {});
+.then(function(msg) {});
 ```
 
 Add a listener for `rateLimit` changes
@@ -497,30 +488,29 @@ List repositories for a particular organization. Includes private repositories i
 
 ```js
 gh.getOrgRepos(orgname)
-.done(function(repos) {});
+.then(function(repos) {});
 ```
 
 ## Progress Notifications
 
 For multistep operations users can listen to updates by registering a listener at `promise.progress(function(obj) {})`.
 
-For more details see jQuery's [deferred.progress documentation](http://api.jquery.com/deferred.progress/).
-
 
 
 ## Setup
 
-`octokit.js` has the following dependencies:
+`octokit.js` has the following dependencies when used in a browser:
 
-- Underscore
-- Base64 (optional). Only needed if you support older browsers.
-- jQuery or [zepto/ajax](https://github.com/madrobby/zepto/blob/master/src/ajax.js). This is a bit overkill and really should use `XMLHTTPRequest`
+- A Promise API (supports jQuery, AngularJS, or a Promise Polyfill)
 
-If you are not using NodeJS or requireJS include these before `octokit.js`:
+If you are already using [jQuery](https://api.jquery.com/jQuery.Deferred/) or [AngularJS](https://docs.angularjs.org/api/ng/service/$q) in your project just be sure to include them before octokit and it will
+use their Promise API.
+
+Otherwise, you can include a Promise polyfill like [jakearchibald/es6-promise](https://github.com/jakearchibald/es6-promise):
 
 ```
-<script src="lib/underscore-min.js">
-<script src="lib/base64.js">         <!-- only needed for older browsers -->
+<script src="./node_modules/es6-promise/dist/promise-0.1.1.js"></script>
+<script src="./octokit.js">
 ```
 
 ## Change Log
