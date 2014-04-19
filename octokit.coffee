@@ -1444,8 +1444,8 @@ else
         resolve = (val) -> $promise.resolve(val)
         reject  = (val) -> $promise.reject(val)
         fn(resolve, reject)
-        return $promise.promise()
-      allPromises = () -> $q.all(arguments)
+        return $promise.promise
+      allPromises = (promises) -> $q.all(promises)
       createGlobalAndAMD(newPromise, allPromises)
   else if @jQuery
     newPromise = (fn) =>

@@ -1364,10 +1364,10 @@
             return $promise.reject(val);
           };
           fn(resolve, reject);
-          return $promise.promise();
+          return $promise.promise;
         };
-        allPromises = function() {
-          return $q.all(arguments);
+        allPromises = function(promises) {
+          return $q.all(promises);
         };
         return createGlobalAndAMD(newPromise, allPromises);
       });
