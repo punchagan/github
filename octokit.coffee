@@ -139,6 +139,10 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
         if 'PATCH' == method and clientOptions.usePostInsteadOfPatch
           method = 'POST'
 
+        # Only prefix the path when it does not begin with http.
+        # This is so pagination works (which provides absolute URLs).
+        path = "#{clientOptions.rootURL}#{path}" if not /^http/.test(path)
+
         # Support binary data by overriding the response mimeType
         mimeType = undefined
         mimeType = 'text/plain; charset=x-user-defined' if options.isBase64
@@ -177,7 +181,7 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
           ajaxConfig =
             # Be sure to **not** blow the cache with a random number
             # (GitHub will respond with 5xx or CORS errors)
-            url: clientOptions.rootURL + path
+            url: path
             type: method
             contentType: 'application/json'
             mimeType: mimeType
@@ -231,6 +235,22 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
 
               if jqXHR.responseText and 'json' == ajaxConfig.dataType
                 data = JSON.parse(jqXHR.responseText)
+
+                # Only JSON responses have next/prev/first/last link headers
+                # Add them to data so the resolved value is iterable
+                valOptions = {}
+
+                # Parse the Link headers
+                # of the form `<http://a.com>; rel="next", <https://b.com?a=b&c=d>; rel="previous"`
+                links = jqXHR.getResponseHeader('Link')
+                _.each links?.split(','), (part) ->
+                  [discard, href, rel] = part.match(/<([^>]+)>;\ rel="([^"]+)"/)
+                  # Name the functions `nextPage`, `previousPage`, `firstPage`, `lastPage`
+                  valOptions["#{rel}Page"] = () -> _request('GET', href, null, options)
+
+                # Add the pagination functions on the JSON since Promises resolve one value
+                _.extend(data, valOptions)
+
               else
                 data = jqXHR.responseText or firstArg # najax does not tack the responseText onto jqXHR
 
