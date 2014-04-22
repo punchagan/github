@@ -104,7 +104,7 @@
   };
 
   makeOctokit = function(newPromise, allPromises, XMLHttpRequest, base64encode, userAgent) {
-    var Octokit, ajax;
+    var Octokit, ajax, rejectedPromise, resolvedPromise;
     ajax = function(options) {
       return newPromise(function(resolve, reject) {
         var name, value, xhr, _ref;
@@ -138,6 +138,16 @@
           }
         };
         return xhr.send(options.data);
+      });
+    };
+    resolvedPromise = function(val) {
+      return newPromise(function(resolve, reject) {
+        return resolve(val);
+      });
+    };
+    rejectedPromise = function(err) {
+      return newPromise(function(resolve, reject) {
+        return reject(err);
       });
     };
     Octokit = (function() {
@@ -420,7 +430,7 @@
                 _cachedInfo = null;
               }
               if (_cachedInfo) {
-                return Promise.resolve(_cachedInfo);
+                return resolvedPromise(_cachedInfo);
               }
               return _request('GET', "" + _rootPath, null).then(function(info) {
                 return _cachedInfo = info;
@@ -689,7 +699,7 @@
                 if (file != null ? file.sha : void 0) {
                   return file != null ? file.sha : void 0;
                 }
-                return Promise.reject({
+                return rejectedPromise({
                   message: 'SHA_NOT_FOUND'
                 });
               });
@@ -1016,7 +1026,7 @@
               }
               if (branchName) {
                 getRef = function() {
-                  return Promise.resolve(branchName);
+                  return resolvedPromise(branchName);
                 };
                 return new Branch(this.git, getRef);
               } else {
@@ -1121,7 +1131,7 @@
             this.canCollaborate = function() {
               var _this = this;
               if (!(clientOptions.password || clientOptions.token)) {
-                return Promise.resolve(false);
+                return resolvedPromise(false);
               }
               return _client.getLogin().then(function(login) {
                 if (!login) {
@@ -1304,7 +1314,7 @@
               return info.login;
             });
           } else {
-            return Promise.resolve(null);
+            return resolvedPromise(null);
           }
         };
       }
