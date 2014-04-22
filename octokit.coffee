@@ -241,7 +241,7 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
               if jqXHR.responseText and 'json' == ajaxConfig.dataType
                 data = JSON.parse(jqXHR.responseText)
               else
-                data = jqXHR.responseText or firstArg # najax does not tack the responseText onto jqXHR
+                data = jqXHR.responseText
 
               # Convert the response to a Base64 encoded string
               if 'GET' == method and options.isBase64
