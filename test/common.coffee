@@ -139,9 +139,6 @@ makeTests = (assert, expect, btoa, Octokit) ->
         console.log('BEFORE: Checking if repo exists')
         promise = STATE[REPO].getInfo()
         .then (val) ->
-          # HACK: najax seems to ignore the HTTP Status
-          if 'Not Found' == val.message
-            return createRepo()
           # STATE[REPO].git.deleteRepo()
           # .catch(() -> resetRepoToFirstCommit)
           # .then () -> createRepo()

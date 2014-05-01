@@ -25,7 +25,7 @@ _.isEmpty = (object) ->
   Object.keys(object).length == 0
 
 _.isArray = (object) ->
-  !!object.slice
+  !!object?.slice
 
 _.defaults = (object, values) ->
   for key in Object.keys(values)
@@ -33,6 +33,7 @@ _.defaults = (object, values) ->
       object[key] ?= values[key]
 
 _.each = (object, fn) ->
+  return if not object
   if _.isArray(object)
     object.forEach(fn)
   arr = []
