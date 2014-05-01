@@ -56,7 +56,7 @@ define(['octokit'], function(Octokit) {
 });
 ```
 
-### In Nodejs
+### In NodeJS
 
 Install instructions:
 
@@ -68,6 +68,26 @@ var gh = Octokit.new({
   username: "YOU_USER",
   password: "YOUR_PASSWORD"
 });
+```
+
+### Using Generators in NodeJS 0.11 (or EcmaScript 6 browsers)
+
+This requires NodeJS 0.11 with the `--harmony-generators` flag:
+
+```js
+var co = require('co');
+var Octokit = require('octokit');
+var gh = Octokit.new();
+
+var fn = function *() {
+  var zen  = yield gh.getZen();
+  var info = yield gh.getRepo('philschatz', 'octokit.js').getInfo();
+
+  console.log(zen);
+  console.log(info);
+};
+
+co(fn)();
 ```
 
 ### Using bower
