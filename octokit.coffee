@@ -1482,7 +1482,7 @@ else
     createGlobalAndAMD(newPromise, allPromises)
 
   else if @Promise
-    newPromise = (fn) => return new @Promise(fn) ->
+    newPromise = (fn) => return new @Promise (resolve, reject) ->
       # Some browsers (like node-webkit 0.8.6) contain an older implementation
       # of Promises that provide 1 argument (a `PromiseResolver`).
       if resolve.fulfill
