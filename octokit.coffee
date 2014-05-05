@@ -1435,28 +1435,37 @@ else
       @Octokit = Octokit
       @Github = Octokit
 
-  # Determine the correct Promise factory
+  # Determine the correct Promise factory.
+  # Try to use libraries before native Promises since most Promise users
+  # are already using a library.
+  #
   # Try in the following order:
-  # - native Promise or a polyfill
+  # - Q Promise
   # - angularjs Promise
   # - jQuery Promise
-  if @Promise
-    newPromise = (fn) => return new @Promise(fn)
-    allPromises = @Promise.all
+  # - native Promise or a polyfill
+  if @Q
+    newPromise = (fn) =>
+      deferred = @Q.defer()
+      resolve = (val) -> deferred.resolve(val)
+      reject  = (err) -> deferred.reject(err)
+      fn(resolve, reject)
+      return deferred.promise
+    allPromises = (promises) -> @Q.all(promises)
     createGlobalAndAMD(newPromise, allPromises)
   else if @angular
     # Details on Angular Promises: http://docs.angularjs.org/api/ng/service/$q
     injector = angular.injector(['ng'])
     injector.invoke ($q) ->
       newPromise = (fn) ->
-        $promise = $q.defer()
-        resolve = (val) -> $promise.resolve(val)
-        reject  = (val) -> $promise.reject(val)
+        deferred = $q.defer()
+        resolve = (val) -> deferred.resolve(val)
+        reject  = (err) -> deferred.reject(err)
         fn(resolve, reject)
-        return $promise.promise
+        return deferred.promise
       allPromises = (promises) -> $q.all(promises)
       createGlobalAndAMD(newPromise, allPromises)
-  else if @jQuery
+  else if @jQuery?.Deferred
     newPromise = (fn) =>
       promise = @jQuery.Deferred()
       resolve = (val) -> promise.resolve(val)
@@ -1471,6 +1480,18 @@ else
       # So, convert the array of promises to args and then the resolved args to an array
       return @jQuery.when(promises...).then((promises...) -> return promises)
     createGlobalAndAMD(newPromise, allPromises)
+
+  else if @Promise
+    newPromise = (fn) => return new @Promise (resolve, reject) ->
+      # Some browsers (like node-webkit 0.8.6) contain an older implementation
+      # of Promises that provide 1 argument (a `PromiseResolver`).
+      if resolve.fulfill
+        fn(resolve.resolve.bind(resolve), resolve.reject.bind(resolve))
+      else
+        fn(arguments...)
+    allPromises = @Promise.all
+    createGlobalAndAMD(newPromise, allPromises)
+
   else
     # Otherwise, throw an error
     err = (msg) ->

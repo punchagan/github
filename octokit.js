@@ -1,5 +1,5 @@
 (function() {
-  var Octokit, Promise, XMLHttpRequest, allPromises, createGlobalAndAMD, encode, err, injector, makeOctokit, newPromise, _,
+  var Octokit, Promise, XMLHttpRequest, allPromises, createGlobalAndAMD, encode, err, injector, makeOctokit, newPromise, _, _ref,
     _this = this,
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
@@ -1355,33 +1355,44 @@
         return _this.Github = Octokit;
       }
     };
-    if (this.Promise) {
+    if (this.Q) {
       newPromise = function(fn) {
-        return new _this.Promise(fn);
+        var deferred, reject, resolve;
+        deferred = _this.Q.defer();
+        resolve = function(val) {
+          return deferred.resolve(val);
+        };
+        reject = function(err) {
+          return deferred.reject(err);
+        };
+        fn(resolve, reject);
+        return deferred.promise;
       };
-      allPromises = this.Promise.all;
+      allPromises = function(promises) {
+        return this.Q.all(promises);
+      };
       createGlobalAndAMD(newPromise, allPromises);
     } else if (this.angular) {
       injector = angular.injector(['ng']);
       injector.invoke(function($q) {
         newPromise = function(fn) {
-          var $promise, reject, resolve;
-          $promise = $q.defer();
+          var deferred, reject, resolve;
+          deferred = $q.defer();
           resolve = function(val) {
-            return $promise.resolve(val);
+            return deferred.resolve(val);
           };
-          reject = function(val) {
-            return $promise.reject(val);
+          reject = function(err) {
+            return deferred.reject(err);
           };
           fn(resolve, reject);
-          return $promise.promise;
+          return deferred.promise;
         };
         allPromises = function(promises) {
           return $q.all(promises);
         };
         return createGlobalAndAMD(newPromise, allPromises);
       });
-    } else if (this.jQuery) {
+    } else if ((_ref = this.jQuery) != null ? _ref.Deferred : void 0) {
       newPromise = function(fn) {
         var promise, reject, resolve;
         promise = _this.jQuery.Deferred();
@@ -1395,13 +1406,25 @@
         return promise.promise();
       };
       allPromises = function(promises) {
-        var _ref;
-        return (_ref = _this.jQuery).when.apply(_ref, promises).then(function() {
+        var _ref1;
+        return (_ref1 = _this.jQuery).when.apply(_ref1, promises).then(function() {
           var promises;
           promises = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
           return promises;
         });
       };
+      createGlobalAndAMD(newPromise, allPromises);
+    } else if (this.Promise) {
+      newPromise = function(fn) {
+        return new _this.Promise(function(resolve, reject) {
+          if (resolve.fulfill) {
+            return fn(resolve.resolve.bind(resolve), resolve.reject.bind(resolve));
+          } else {
+            return fn.apply(null, arguments);
+          }
+        });
+      };
+      allPromises = this.Promise.all;
       createGlobalAndAMD(newPromise, allPromises);
     } else {
       err = function(msg) {
