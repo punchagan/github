@@ -1407,14 +1407,16 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
 if exports?
   # Use native promises if Harmony is on
   Promise         = @Promise or require('es6-promise').Promise
-  XMLHttpRequest  = require('xmlhttprequest').XMLHttpRequest
+  XMLHttpRequest  = @XMLHttpRequest or require('xmlhttprequest').XMLHttpRequest
 
   newPromise = (fn) -> return new Promise(fn)
   allPromises = (promises) -> return Promise.all(promises)
+
   # Encode using native Base64
-  encode = (str) ->
+  encode = @btoa or (str) ->
     buffer = new Buffer(str, 'binary')
     return buffer.toString('base64')
+
   Octokit = makeOctokit(newPromise, allPromises, XMLHttpRequest, encode, 'octokit') # `User-Agent` (for nodejs)
   exports.new = (options) -> new Octokit(options)
 

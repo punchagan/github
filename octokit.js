@@ -1327,14 +1327,14 @@
 
   if (typeof exports !== "undefined" && exports !== null) {
     Promise = this.Promise || require('es6-promise').Promise;
-    XMLHttpRequest = require('xmlhttprequest').XMLHttpRequest;
+    XMLHttpRequest = this.XMLHttpRequest || require('xmlhttprequest').XMLHttpRequest;
     newPromise = function(fn) {
       return new Promise(fn);
     };
     allPromises = function(promises) {
       return Promise.all(promises);
     };
-    encode = function(str) {
+    encode = this.btoa || function(str) {
       var buffer;
       buffer = new Buffer(str, 'binary');
       return buffer.toString('base64');
