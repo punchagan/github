@@ -12,7 +12,7 @@
   };
 
   _.isArray = function(object) {
-    return !!object.slice;
+    return !!(object != null ? object.slice : void 0);
   };
 
   _.defaults = function(object, values) {
@@ -30,6 +30,9 @@
 
   _.each = function(object, fn) {
     var arr, key, _i, _len, _ref, _results;
+    if (!object) {
+      return;
+    }
     if (_.isArray(object)) {
       object.forEach(fn);
     }
@@ -198,6 +201,9 @@
           if ('PATCH' === method && clientOptions.usePostInsteadOfPatch) {
             method = 'POST';
           }
+          if (!/^http/.test(path)) {
+            path = "" + clientOptions.rootURL + path;
+          }
           mimeType = void 0;
           if (options.isBase64) {
             mimeType = 'text/plain; charset=x-user-defined';
@@ -225,7 +231,7 @@
             var ajaxConfig, always, onError, xhrPromise,
               _this = this;
             ajaxConfig = {
-              url: clientOptions.rootURL + path,
+              url: path,
               type: method,
               contentType: 'application/json',
               mimeType: mimeType,
@@ -258,7 +264,7 @@
               return _results;
             };
             xhrPromise.then(function(jqXHR) {
-              var converted, eTag, eTagResponse, i, _i, _ref;
+              var converted, eTag, eTagResponse, i, links, valOptions, _i, _ref;
               always(jqXHR);
               if (304 === jqXHR.status) {
                 if (clientOptions.useETags && _cachedETags[path]) {
@@ -272,6 +278,16 @@
               } else {
                 if (jqXHR.responseText && 'json' === ajaxConfig.dataType) {
                   data = JSON.parse(jqXHR.responseText);
+                  valOptions = {};
+                  links = jqXHR.getResponseHeader('Link');
+                  _.each(links != null ? links.split(',') : void 0, function(part) {
+                    var discard, href, rel, _ref;
+                    _ref = part.match(/<([^>]+)>;\ rel="([^"]+)"/), discard = _ref[0], href = _ref[1], rel = _ref[2];
+                    return valOptions["" + rel + "Page"] = function() {
+                      return _request('GET', href, null, options);
+                    };
+                  });
+                  _.extend(data, valOptions);
                 } else {
                   data = jqXHR.responseText;
                 }
