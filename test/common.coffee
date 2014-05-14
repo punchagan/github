@@ -286,8 +286,8 @@ makeTests = (assert, expect, btoa, Octokit) ->
           itIsOk(USER, 'getFollowing')
           #(USER, 'isFollowing')
           # itIsOk(USER, 'getPublicKeys')
-          # itIsOk(USER, 'getEvents')
           itIsOk(USER, 'getReceivedEvents')
+          # itIsOk(USER, 'getEvents')
 
         describe 'Methods only for authenticated user:', () ->
           #(USER, 'updateInfo(options')
