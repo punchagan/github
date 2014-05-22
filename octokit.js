@@ -306,28 +306,27 @@
               }
             });
             onError = function(jqXHR) {
-              var json;
+              var err, json;
               always(jqXHR);
               if (options.isBoolean && 404 === jqXHR.status) {
                 return resolve(false);
               } else {
                 if (jqXHR.getResponseHeader('Content-Type') !== 'application/json; charset=utf-8') {
-                  return reject({
-                    error: jqXHR.responseText,
-                    status: jqXHR.status,
-                    _jqXHR: jqXHR
-                  });
+                  err = new Error(jqXHR.responseText);
+                  err['status'] = jqXHR.status;
+                  err['__jqXHR'] = jqXHR;
+                  return reject(err);
                 } else {
+                  err = new Error("Github error: " + jqXHR.responseText);
                   if (jqXHR.responseText) {
                     json = JSON.parse(jqXHR.responseText);
                   } else {
                     json = '';
                   }
-                  return reject({
-                    error: json,
-                    status: jqXHR.status,
-                    _jqXHR: jqXHR
-                  });
+                  err['error'] = json;
+                  err['status'] = jqXHR.status;
+                  err['__jqXHR'] = jqXHR;
+                  return reject(err);
                 }
               }
             };
