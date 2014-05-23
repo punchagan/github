@@ -292,15 +292,23 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
             else
 
               if jqXHR.getResponseHeader('Content-Type') != 'application/json; charset=utf-8'
-                reject {error: jqXHR.responseText, status: jqXHR.status, _jqXHR: jqXHR}
+                err = new Error(jqXHR.responseText)
+                err['status'] = jqXHR.status
+                err['__jqXHR'] = jqXHR
+                reject(err)
 
               else
+                err = new Error("Github error: #{jqXHR.responseText}")
                 if jqXHR.responseText
                   json = JSON.parse(jqXHR.responseText)
                 else
                   # In the case of 404 errors, `responseText` is an empty string
                   json = ''
-                reject {error: json, status: jqXHR.status, _jqXHR: jqXHR}
+                # XXX: should be body or something else probably
+                err['error'] = json
+                err['status'] = jqXHR.status
+                err['__jqXHR'] = jqXHR
+                reject(err)
 
           # Depending on the Promise implementation, the `catch` method may be `.catch` or `.fail`
           xhrPromise.catch?(onError) or xhrPromise.fail(onError)
