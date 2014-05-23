@@ -562,6 +562,14 @@
               options.name = name;
               return _request('POST', "/user/repos", options);
             };
+            this.getReceivedEvents = function(username, page) {
+              var currentPage;
+              if (page == null) {
+                page = 1;
+              }
+              currentPage = '?page=' + page;
+              return _request('GET', '/users/' + username + '/received_events' + currentPage, null);
+            };
           }
 
           return AuthenticatedUser;

@@ -286,7 +286,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
           itIsOk(USER, 'getFollowing')
           #(USER, 'isFollowing')
           # itIsOk(USER, 'getPublicKeys')
-          # itIsOk(USER, 'getReceivedEvents')
+          itIsOk(USER, 'getReceivedEvents')
           # itIsOk(USER, 'getEvents')
 
         describe 'Methods only for authenticated user:', () ->
@@ -300,6 +300,7 @@ makeTests = (assert, expect, btoa, Octokit) ->
           #(USER, 'getPublicKey(id)')
           #(USER, 'addPublicKey(title, key)')
           #(USER, 'updatePublicKey(id, options)')
+          itIsOk(USER, 'getReceivedEvents')
 
       describe 'Another User:', () ->
         before () ->
