@@ -68,6 +68,7 @@ _.extend = (object, template) ->
   for key in Object.keys(template)
     do (key) ->
       object[key] = template[key]
+  object
 
 _.toArray = (object) ->
   return Array.prototype.slice.call(object)
