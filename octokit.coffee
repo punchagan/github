@@ -571,7 +571,7 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
           @createRepo = (name, options={}) ->
             options.name = name
             _request 'POST', "/user/repos", options
-            
+
           # Get Received events for this authenticated user
           # -------
           @getReceivedEvents = (username, page = 1) ->
