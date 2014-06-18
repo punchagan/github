@@ -87,6 +87,10 @@ module.exports = (grunt) ->
         log: true
         reporter: 'Dot'
 
+    watch:
+      files: 'octokit.coffee'
+      tasks: ['default']
+
 
   # Dependencies
   # ============
