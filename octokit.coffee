@@ -1122,6 +1122,31 @@ makeOctokit = (newPromise, allPromises, XMLHttpRequest, base64encode, userAgent)
           @getInfo = () ->
             _request 'GET', @repoPath, null
 
+          # Get repository issues
+          # -------
+          @getIssues = (state="open") ->
+            _request 'GET', "#{@repoPath}/issues?state=#{state}", null
+
+          # Get a specific issue
+          # -------
+          @getIssue = (number) ->
+            _request 'GET', "#{@repoPath}/issues/#{number}", null
+
+          # Get repository issue comments
+          # -------
+          @getComments = (number) ->
+            _request 'GET', "#{@repoPath}/issues/#{number}/comments", null
+
+          # Create a comment
+          # -------
+          @createComment = (number, body) ->
+            _request 'POST', "#{@repoPath}/issues/#{number}/comments", {body: body}
+
+          # Create new repository issue
+          # -------
+          @createIssue = (title, body="") ->
+            _request 'POST', "#{@repoPath}/issues", {title: title, body: body}
+
           # Get contents
           # --------
           @getContents = (branch, path) ->
